@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HKDSE 2024 Physics Paper 1A</title>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+    <style>
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 14px;
+            background-color: #f0f0f0;
+            color: #000;
+        }
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 2cm;
+            margin: 1cm auto;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+            position: relative;
+        }
+        .cover-header {
+            text-align: right;
+            font-weight: bold;
+        }
+        .main-title-block {
+            text-align: center;
+            margin-top: 1cm;
+        }
+        .main-title-block h1, .main-title-block h2 {
+            margin: 0.5cm 0;
+            font-weight: bold;
+        }
+        .main-title-block h1 { font-size: 2em; }
+        .main-title-block h2 { font-size: 1.5em; }
+        .main-title-block p { font-size: 1.2em; }
+        .instructions {
+            border: 1px solid black;
+            padding: 15px;
+            margin-top: 1cm;
+        }
+        .instructions-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 1em;
+        }
+        .instructions ol {
+            padding-left: 20px;
+            margin: 0;
+        }
+        .instructions ol li {
+            margin-bottom: 10px;
+            padding-left: 5px;
+        }
+        .cover-footer {
+            text-align: center;
+            position: absolute;
+            bottom: 2cm;
+            width: calc(100% - 4cm);
+        }
+        .cover-footer p { margin: 2px 0; }
+        .take-away-notice {
+            position: absolute;
+            bottom: 2cm;
+            right: 2cm;
+            text-align: right;
+            font-weight: bold;
+        }
+        .page-footer {
+            position: absolute;
+            bottom: 1cm;
+            width: calc(100% - 4cm);
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+        }
+        .section-title {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        .question-block {
+            margin-bottom: 2em;
+        }
+        .question-text {
+            display: inline;
+        }
+        .question-number {
+            font-weight: bold;
+            display: inline-block;
+            width: 25px;
+            vertical-align: top;
+        }
+        .question-content {
+            display: inline-block;
+            width: calc(100% - 30px);
+        }
+        .options {
+            list-style-type: upper-alpha;
+            padding-left: 40px;
+        }
+        .options li {
+            margin-bottom: 5px;
+        }
+        .figure {
+            text-align: center;
+            margin: 1.5em 0;
+        }
+        /* Style for text inside SVG to be non-italic and bold */
+        svg text {
+            font-family: sans-serif;
+            font-style: normal;
+            font-weight: bold;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="page">
+    <div class="cover-header">
+        <p>2024-DSE<br>PHY<br>PAPER 1A</p>
+    </div>
+
+    <div class="main-title-block">
+        <h2>HONG KONG EXAMINATIONS AND ASSESSMENT AUTHORITY</h2>
+        <h2>HONG KONG DIPLOMA OF SECONDARY EDUCATION EXAMINATION 2024</h2>
+        <h1>PHYSICS PAPER 1</h1>
+        <p>8:30 am – 11:00 am (2$\frac{1}{2}$ hours)<br>This paper must be answered in English</p>
+    </div>
+
+    <div class="instructions">
+        <div class="instructions-title">GENERAL INSTRUCTIONS</div>
+        <ol>
+            <li>There are TWO sections, A and B, in this Paper. You are advised to finish Section A in about 50 minutes.</li>
+            <li>Section A consists of multiple-choice questions in this question paper, while Section B contains conventional questions printed separately in Question-Answer Book B.</li>
+            <li>Answers to Section A should be marked on the Multiple-choice Answer Sheet while answers to Section B should be written in the spaces provided in the Question-Answer Book. The Answer Sheet for Section A and the Question-Answer Book for Section B will be collected separately at the end of the examination.</li>
+            <li>The diagrams in this paper are NOT necessarily drawn to scale.</li>
+            <li>The last two pages of this question paper contain a list of data, formulae and relationships which you may find useful.</li>
+        </ol>
+    </div>
+
+    <div class="instructions">
+        <div class="instructions-title">INSTRUCTIONS FOR SECTION A (MULTIPLE-CHOICE QUESTIONS)</div>
+        <ol>
+            <li>Read carefully the instructions on the Answer Sheet. After the announcement of the start of the examination, you should first stick a barcode label and insert the information required in the spaces provided. No extra time will be given for sticking on the barcode label after the ‘Time is up’ announcement.</li>
+            <li>When told to open this book, you should check that all the questions are there. Look for the words ‘END OF SECTION A’ after the last question.</li>
+            <li>All questions carry equal marks.</li>
+            <li>ANSWER ALL QUESTIONS. You are advised to use an HB pencil to mark all the answers on the Answer Sheet, so that wrong marks can be completely erased with a rubber. You must mark the answers clearly; otherwise you will lose marks if the answers cannot be captured.</li>
+            <li>You should mark only ONE answer for each question. If you mark more than one answer, you will receive NO MARKS for that question.</li>
+            <li>No marks will be deducted for wrong answers.</li>
+        </ol>
+    </div>
+
+    <div class="cover-footer">
+        <p>©香港考試及評核局 保留版權</p>
+        <p>Hong Kong Examinations and Assessment Authority</p>
+        <p>All Rights Reserved 2024</p>
+    </div>
+    <div class="take-away-notice">
+        <p>Not to be taken away before the<br>end of the examination session</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="section-title">Section A</div>
+    <p>There are 33 questions. Questions marked with * involve knowledge of the extension component.</p>
+    <hr>
+    
+    <div class="question-block">
+        <div class="question-number">1.</div>
+        <div class="question-content">
+            <div class="question-text">A 200 g block of a hot metal is dropped into a copper calorimeter of mass 100 g containing 300 g of water. The temperature of the water and calorimeter rises from 20$^\circ$C to 30$^\circ$C. What was the initial temperature of the metal block? <br>(Given: Specific heat capacity of water = 4200 J kg$^{-1}$ $^\circ$C$^{-1}$; copper = 390 J kg$^{-1}$ $^\circ$C$^{-1}$; metal = 450 J kg$^{-1}$ $^\circ$C$^{-1}$)</div>
+            <ol class="options">
+                <li>129.9$^\circ$C</li>
+                <li>144.3$^\circ$C</li>
+                <li>172.1$^\circ$C</li>
+                <li>183.3$^\circ$C</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="question-block">
+        <div class="question-number">2.</div>
+        <div class="question-content">
+            <div class="question-text">A block of dry ice (solid carbon dioxide) at -78.5$^\circ$C turns directly into gas at the same temperature. Which statement correctly describes the change in the carbon dioxide molecules?</div>
+            <ol class="options">
+                <li>Their average kinetic energy increases.</li>
+                <li>Their average potential energy decreases.</li>
+                <li>Their average kinetic energy is unchanged but their average potential energy increases.</li>
+                <li>Both their average kinetic and potential energy increase.</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div class="question-block">
+        <div class="question-number">3.</div>
+        <div class="question-content">
+            <div class="question-text">An ideal gas is held in a cylinder by a frictionless piston. The initial volume of the gas is $1.5 \times 10^{-3}$ m$^3$ at a pressure of $1.0 \times 10^5$ Pa and temperature 300 K. The gas is heated to 400 K and its volume expands to $2.5 \times 10^{-3}$ m$^3$. What is the new pressure of the gas?</div>
+            <ol class="options">
+                <li>$0.80 \times 10^5$ Pa</li>
+                <li>$0.95 \times 10^5$ Pa</li>
+                <li>$1.25 \times 10^5$ Pa</li>
+                <li>$2.22 \times 10^5$ Pa</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="question-block">
+        <div class="question-number">4.</div>
+        <div class="question-content">
+            <div class="question-text">A robot moves from start point P to end point Q in 20 s by travelling 8 m East and then 6 m North. What is the difference between its average speed and the magnitude of its average velocity?</div>
+            <div class="figure">
+                <svg width="250" height="150" viewBox="0 0 250 150">
+                    <defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#000" /></marker></defs>
+                    <path d="M 20 120 L 140 120 L 140 40" stroke="black" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+                    <path d="M 20 120 L 140 40" stroke="blue" stroke-width="2" stroke-dasharray="5,5" fill="none"/>
+                    <text x="10" y="135">P (Start)</text>
+                    <text x="130" y="30">Q (End)</text>
+                    <text x="70" y="135">8 m</text>
+                    <text x="145" y="85">6 m</text>
+                </svg>
+            </div>
+            <ol class="options">
+                <li>0 m s$^{-1}$</li>
+                <li>0.2 m s$^{-1}$</li>
+                <li>0.5 m s$^{-1}$</li>
+                <li>0.7 m s$^{-1}$</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div class="question-block">
+        <div class="question-number">5.</div>
+        <div class="question-content">
+            <div class="question-text">A uniform horizontal rod of length 2.0 m and weight 50 N is pivoted to a wall. It supports a 200 N sign and is held in place by a cable as shown. What is the tension T in the cable?</div>
+            <div class="figure">
+                <svg width="250" height="200" viewBox="0 0 250 200">
+                    <rect x="0" y="0" width="20" height="200" fill="#d3d3d3" stroke="black" />
+                    <line x1="20" y1="100" x2="200" y2="100" stroke="brown" stroke-width="4" />
+                    <line x1="150" y1="100" x2="20" y2="40" stroke="blue" stroke-width="2" />
+                    <circle cx="20" cy="100" r="5" fill="white" stroke="black" />
+                    <text x="80" y="65" fill="blue">T</text>
+                    <line x1="110" y1="100" x2="110" y2="140" stroke="black" stroke-width="2" marker-end="url(#arrow)" />
+                    <text x="100" y="155">50 N</text>
+                    <line x1="200" y1="100" x2="200" y2="150" stroke="black" stroke-width="2" marker-end="url(#arrow)" />
+                    <rect x="175" y="150" width="50" height="25" fill="#f0e68c" stroke="black" />
+                    <text x="182" y="167">SIGN</text>
+                </svg>
+            </div>
+            <ol class="options">
+                <li>300.5 N</li>
+                <li>450.0 N</li>
+                <li>540.8 N</li>
+                <li>811.2 N</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="question-block">
+        <div class="question-number">6.</div>
+        <div class="question-content">
+            <div class="question-text">Two masses, $m_1 = 4$ kg and $m_2 = 6$ kg, are connected by a light inextensible string over a frictionless pulley (an Atwood machine). When the system is released from rest, what is the acceleration of the masses? (Take $g = 9.81$ m s$^{-2}$)</div>
+            <div class="figure">
+                <svg width="120" height="200" viewBox="0 0 120 200">
+                    <circle cx="60" cy="40" r="15" stroke="black" stroke-width="2" fill="#e0e0e0" />
+                    <circle cx="60" cy="40" r="4" fill="white" stroke="black" />
+                    <path d="M 45 40 A 15 15 0 0 1 75 40" stroke="black" stroke-width="2" fill="none" />
+                    <line x1="45" y1="40" x2="45" y2="80" stroke="black" stroke-width="2" />
+                    <rect x="25" y="80" width="40" height="25" fill="#ffcccc" stroke="black" />
+                    <text x="35" y="97">$m_1$=4kg</text>
+                    <line x1="75" y1="40" x2="75" y2="100" stroke="black" stroke-width="2" />
+                    <rect x="55" y="100" width="40" height="25" fill="#ccccff" stroke="black" />
+                    <text x="65" y="117">$m_2$=6kg</text>
+                </svg>
+            </div>
+            <ol class="options">
+                <li>1.96 m s$^{-2}$</li>
+                <li>3.92 m s$^{-2}$</li>
+                <li>4.91 m s$^{-2}$</li>
+                <li>9.81 m s$^{-2}$</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="question-block">
+        <div class="question-number">7.</div>
+        <div class="question-content">
+            <div class="question-text">A 60 kg person stands at rest on a 20 kg skateboard on a frictionless horizontal surface. The person then throws a 5 kg bag horizontally with a velocity of 8 m s$^{-1}$ relative to the ground. What is the final recoil velocity of the person and the skateboard?</div>
+            <ol class="options">
+                <li>-0.5 m s$^{-1}$</li>
+                <li>-0.67 m s$^{-1}$</li>
+                <li>-0.8 m s$^{-1}$</li>
+                <li>-1.0 m s$^{-1}$</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div class="question-block">
+        <div class="question-number">8.</div>
+        <div class="question-content">
+            <div class="question-text">A trolley of mass 2.0 kg is moving at 1.0 m s$^{-1}$. A time-varying force F acts on it in the direction of motion. The force-time graph is shown below. What is the final speed of the trolley at t=6 s?</div>
+            <div class="figure">
+                <svg width="300" height="180" viewBox="0 0 300 180">
+                    <line x1="20" y1="150" x2="280" y2="150" stroke="black" stroke-width="2" marker-end="url(#arrow)" />
+                    <line x1="30" y1="160" x2="30" y2="20" stroke="black" stroke-width="2" marker-end="url(#arrow)" />
+                    <text x="285" y="155">t / s</text>
+                    <text x="5" y="35">F / N</text>
+                    <polyline points="30,150 110,50 190,50 270,150" stroke="blue" stroke-width="3" fill="none" />
+                    <line x1="25" y1="50" x2="35" y2="50" stroke="black" /><text x="15" y="55">4</text>
+                    <line x1="110" y1="145" x2="110" y2="155" stroke="black" /><text x="105" y="168">2</text>
+                    <line x1="190" y1="145" x2="190" y2="155" stroke="black" /><text x="185" y="168">4</text>
+                    <line x1="270" y1="145" x2="270" y2="155" stroke="black" /><text x="265" y="168">6</text>
+                </svg>
+            </div>
+            <ol class="options">
+                <li>8.0 m s$^{-1}$</li>
+                <li>9.0 m s$^{-1}$</li>
+                <li>12.0 m s$^{-1}$</li>
+                <li>16.0 m s$^{-1}$</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div class="page-footer">
+        <span><b>2024-DSE-PHY 1A-2</b></span>
+        <span><i>Go on to the next page</i></span>
+    </div>
+</div>
+
+</body>
+</html>
