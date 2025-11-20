@@ -3,163 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rutherford Scattering Simulation</title>
+    <title>Rutherford vs Thomson Scattering</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1a1a1a;
-            color: #eee;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            background-color: #121212;
+            color: #e0e0e0;
             margin: 0;
-            padding: 20px;
-        }
-        h1 { margin-bottom: 10px; }
-        .main-container {
-            display: flex;
-            gap: 20px;
-            background: #2a2a2a;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        canvas {
-            background-color: #000;
-            border: 2px solid #444;
-            border-radius: 4px;
-            cursor: crosshair;
-        }
-        .controls {
-            width: 300px;
+            padding: 0;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            overflow: hidden; /* Prevent scrolling on mobile */
         }
-        .control-group {
-            background: #333;
+
+        header {
             padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #00bcd4;
+            text-align: center;
+            background: #1e1e1e;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 10;
         }
-        .control-group h3 {
-            margin-top: 0;
-            color: #00bcd4;
-            font-size: 1.1em;
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #fff;
         }
-        label { display: block; margin-bottom: 5px; font-size: 0.9em; }
-        input[type="range"] { width: 100%; }
-        
-        button {
-            background: #444;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 5px;
-            cursor: pointer;
+
+        /* Main layout: Canvas takes available space */
+        .simulation-area {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Controls overlay */
+        .controls {
+            background: #1e1e1e;
+            padding: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            border-top: 1px solid #333;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 0.8rem;
+            color: #aaa;
             font-weight: bold;
-            transition: background 0.2s;
+            text-transform: uppercase;
         }
-        button:hover { background: #555; }
+
+        .btn-group {
+            display: flex;
+            background: #333;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        button {
+            background: #333;
+            color: #ccc;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        button:hover { background: #444; }
+        
         button.active {
             background: #00bcd4;
             color: #000;
         }
 
+        input[type="range"] {
+            width: 150px;
+            cursor: pointer;
+        }
+
         .stats {
             font-family: monospace;
-            font-size: 0.9em;
-            color: #aaa;
+            font-size: 0.85rem;
+            background: #2c2c2c;
+            padding: 5px 10px;
+            border-radius: 4px;
+            border-left: 3px solid #ff9800;
         }
-        .legend {
+
+        /* Legend Overlay inside canvas */
+        .legend-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+        .legend-item {
             display: flex;
-            gap: 10px;
-            font-size: 0.8em;
-            margin-top: 5px;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
         }
-        .dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; }
-        .legend-alpha { background: #ffeb3b; }
-        .legend-nucleus { background: #ff5722; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
     </style>
 </head>
 <body>
 
-    <h1>Rutherford Alpha Scattering</h1>
+    <header>
+        <h1>Alpha Particle Scattering Experiment</h1>
+    </header>
 
-    <div class="main-container">
-        <canvas id="simCanvas" width="600" height="400"></canvas>
-
-        <div class="controls">
-            <div class="control-group">
-                <h3>1. Select Atomic Model</h3>
-                <div style="display: flex; gap: 5px;">
-                    <button id="btn-plum" style="flex:1;">Plum Pudding</button>
-                    <button id="btn-rutherford" class="active" style="flex:1;">Rutherford</button>
-                </div>
-                <p id="model-desc" style="font-size: 0.85em; color: #ccc; margin-top: 10px;">
-                    Current: <b>Nuclear Model</b>. Positive charge is concentrated in a tiny, dense nucleus.
-                </p>
+    <div class="simulation-area">
+        <canvas id="simCanvas"></canvas>
+        <div class="legend-overlay">
+            <div class="legend-item">
+                <span class="dot" style="background:#ffeb3b;"></span> Alpha Particle
             </div>
-
-            <div class="control-group">
-                <h3>2. Alpha Particle Beam</h3>
-                <label>Beam Energy (Speed):</label>
-                <input type="range" id="speed-slider" min="2" max="15" value="6">
-                
-                <label>Fire Rate:</label>
-                <input type="range" id="rate-slider" min="1" max="10" value="2">
-
-                <button id="btn-clear" style="width: 100%; margin-top: 10px;">Clear Trails</button>
+            <div class="legend-item" id="legend-target">
+                <span class="dot" style="background:#ff5722;"></span> Gold Nucleus
             </div>
-
-            <div class="control-group">
-                <h3>Stats</h3>
-                <div class="stats">
-                    Particles: <span id="p-count">0</span><br>
-                    Deflected (>90°): <span id="p-deflected">0</span>
-                </div>
-                <div class="legend">
-                    <div><span class="dot legend-alpha"></span> Alpha (&alpha;)</div>
-                    <div><span class="dot legend-nucleus"></span> Nucleus (+)</div>
-                </div>
+            <div style="margin-top:5px; font-size: 0.75rem; color:#bbb; max-width: 200px;" id="model-explanation">
+                Most particles pass through empty space.
             </div>
         </div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Atomic Model</label>
+            <div class="btn-group">
+                <button id="btn-plum">Plum Pudding</button>
+                <button id="btn-rutherford" class="active">Rutherford</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Beam Speed</label>
+            <input type="range" id="speed-slider" min="5" max="15" value="8">
+        </div>
+
+        <div class="control-group">
+            <label>Statistics</label>
+            <div class="stats">
+                Fired: <span id="count-total">0</span><br>
+                Backscattered: <span id="count-hit">0</span>
+            </div>
+        </div>
+
+        <button id="btn-clear" style="border-radius: 6px;">Clear Trails</button>
     </div>
 
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
-        
-        // Simulation Constants
-        const WIDTH = canvas.width;
-        const HEIGHT = canvas.height;
-        const ATOM_ROWS = 3;
-        const ATOM_COLS = 3;
-        const ATOM_SPACING_X = 120;
-        const ATOM_SPACING_Y = 100;
-        
-        // Physics Constants
-        let COULOMB_K = 2000; // Strength of repulsion
-        let MODE = 'rutherford'; // 'plum' or 'rutherford'
-        
+        const container = document.querySelector('.simulation-area');
+
         // State
+        let width, height;
         let particles = [];
         let atoms = [];
-        let particleIdCounter = 0;
-        let deflectedCount = 0;
+        let MODE = 'rutherford'; // 'plum' or 'rutherford'
+        
+        // Counters
+        let totalParticles = 0;
+        let backScatters = 0;
         let spawnTimer = 0;
 
-        // UI References
+        // Physics Configuration
+        const RUTH_K = 2500;  // Strong force for nucleus
+        const PLUM_K = 15;    // Very weak force (diffuse charge) - reduced from 150
+        const ATOM_RADIUS_PLUM = 60;
+        const ATOM_RADIUS_RUTH = 5; // Visual radius only
+        
+        // UI Elements
+        const uiTotal = document.getElementById('count-total');
+        const uiHit = document.getElementById('count-hit');
         const btnPlum = document.getElementById('btn-plum');
         const btnRuth = document.getElementById('btn-rutherford');
-        const desc = document.getElementById('model-desc');
         const speedSlider = document.getElementById('speed-slider');
-        const rateSlider = document.getElementById('rate-slider');
-        const btnClear = document.getElementById('btn-clear');
-        const countDisplay = document.getElementById('p-count');
-        const deflectDisplay = document.getElementById('p-deflected');
+        const legendText = document.getElementById('model-explanation');
+
+        // --- Resizing Logic (Fixes Elongation) ---
+        function resize() {
+            // Set canvas internal resolution to match the CSS display size
+            width = container.clientWidth;
+            height = container.clientHeight;
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            initAtoms(); // Re-center atoms when screen changes
+        }
+        window.addEventListener('resize', resize);
 
         // --- Classes ---
 
@@ -171,160 +228,187 @@
 
             draw() {
                 if (MODE === 'rutherford') {
-                    // Draw tiny, dense nucleus
+                    // Tiny Nucleus
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                    ctx.arc(this.x, this.y, ATOM_RADIUS_RUTH, 0, Math.PI * 2);
                     ctx.fillStyle = '#ff5722'; // Deep Orange
                     ctx.fill();
-                    // Weak electron cloud visual (faint ring)
+                    
+                    // Faint hint of electron shells (mostly empty space)
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, 40, 0, Math.PI * 2);
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.arc(this.x, this.y, ATOM_RADIUS_PLUM, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
                     ctx.stroke();
                 } else {
-                    // Draw "Plum Pudding" (Large diffuse positive sphere)
+                    // Plum Pudding: Large diffuse positive sphere
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, 40, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(255, 87, 34, 0.2)'; // Faint Orange
+                    ctx.arc(this.x, this.y, ATOM_RADIUS_PLUM, 0, Math.PI * 2);
+                    // Radial gradient to look like a cloud
+                    let grad = ctx.createRadialGradient(this.x, this.y, 10, this.x, this.y, ATOM_RADIUS_PLUM);
+                    grad.addColorStop(0, 'rgba(255, 87, 34, 0.3)');
+                    grad.addColorStop(1, 'rgba(255, 87, 34, 0.05)');
+                    ctx.fillStyle = grad;
                     ctx.fill();
-                    
-                    // Draw "plums" (electrons)
-                    ctx.fillStyle = '#fff';
-                    ctx.font = "10px Arial";
-                    ctx.fillText("-", this.x - 10, this.y - 10);
-                    ctx.fillText("-", this.x + 15, this.y + 5);
-                    ctx.fillText("-", this.x - 5, this.y + 20);
+
+                    // Electrons (The Plums)
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                    ctx.font = "12px Arial";
+                    ctx.fillText("-", this.x - 20, this.y - 20);
+                    ctx.fillText("-", this.x + 20, this.y + 10);
+                    ctx.fillText("-", this.x - 10, this.y + 30);
+                    ctx.fillText("-", this.x + 5, this.y - 35);
                 }
             }
         }
 
         class Particle {
-            constructor(speed) {
-                this.id = particleIdCounter++;
-                // Start on left side
+            constructor() {
+                this.reset();
+                // Pre-warm trails slightly off-screen
+                this.x = -10;
+            }
+
+            reset() {
                 this.x = 0;
-                // Random Y, but concentrated around the atoms for better demo
-                // Add some randomness so they don't all hit the exact center line
-                this.y = (HEIGHT/2 - 150) + Math.random() * 300; 
+                // Spread particles across the height, centered on atoms
+                // We target the center row of atoms mostly for the demo
+                let spread = height * 0.6; 
+                this.y = (height / 2) - (spread/2) + Math.random() * spread;
                 
-                this.vx = speed;
+                this.speed = parseFloat(speedSlider.value);
+                this.vx = this.speed;
                 this.vy = 0;
-                this.trail = [];
-                this.hasDeflected = false;
+                
+                this.history = [];
                 this.dead = false;
+                this.deflected = false;
+                
+                totalParticles++;
+                uiTotal.innerText = totalParticles;
             }
 
             update() {
-                // Save position for trail
-                if (this.trail.length === 0 || 
-                    Math.hypot(this.trail[this.trail.length-1].x - this.x, this.trail[this.trail.length-1].y - this.y) > 5) {
-                    this.trail.push({x: this.x, y: this.y});
-                }
-                // Limit trail length for performance
-                if (this.trail.length > 50) this.trail.shift();
+                // Physics
+                let forceX = 0;
+                let forceY = 0;
 
-                // Physics Interactions
-                if (MODE === 'rutherford') {
-                    for (let atom of atoms) {
-                        let dx = this.x - atom.x;
-                        let dy = this.y - atom.y;
-                        let distSq = dx*dx + dy*dy;
-                        let dist = Math.sqrt(distSq);
+                for (let atom of atoms) {
+                    let dx = this.x - atom.x;
+                    let dy = this.y - atom.y;
+                    let distSq = dx*dx + dy*dy;
+                    let dist = Math.sqrt(distSq);
 
-                        // Coulomb Repulsion: F = k / r^2
-                        // Only apply if reasonably close to save CPU and avoid weird edge cases
-                        if (dist < 80 && dist > 2) { 
-                            let force = COULOMB_K / distSq;
-                            
-                            // Decompose force
-                            let fx = force * (dx / dist);
-                            let fy = force * (dy / dist);
-
-                            this.vx += fx;
-                            this.vy += fy;
+                    if (MODE === 'rutherford') {
+                        // Rutherford: 1/r^2 repulsion
+                        // Cap distance to prevent division by zero/explosion
+                        if (dist > 2 && dist < 150) {
+                            let f = RUTH_K / distSq; 
+                            forceX += f * (dx / dist);
+                            forceY += f * (dy / dist);
+                        }
+                    } else {
+                        // Plum Pudding: Linear repulsion inside the sphere (E ~ r)
+                        // Outside the sphere, it acts like 1/r^2 but much weaker
+                        if (dist < ATOM_RADIUS_PLUM) {
+                            // Inside: Force pushes away from center, increasing with r 
+                            // (Simulating pushing through positive charge cloud)
+                            // Note: Actually, E-field is E = kQr/R^3 inside a uniform sphere.
+                            // We simplify to a weak push away.
+                            let strength = PLUM_K * (dist / (ATOM_RADIUS_PLUM * ATOM_RADIUS_PLUM)); 
+                            forceX += strength * (dx / dist);
+                            forceY += strength * (dy / dist);
                         }
                     }
-                } else {
-                    // Plum Pudding Logic
-                    // Technically, field decreases inside a uniform sphere, 
-                    // and alpha particles are heavy/fast. 
-                    // Result: Almost straight lines. We add tiny jitter to simulate "drag" or minor interaction.
-                    if (Math.random() < 0.05) {
-                        this.vy += (Math.random() - 0.5) * 0.05;
-                    }
                 }
+
+                this.vx += forceX;
+                this.vy += forceY;
 
                 // Move
                 this.x += this.vx;
                 this.y += this.vy;
 
-                // Check Backscattering/Deflection
-                if (!this.hasDeflected && this.vx < 0) {
-                    this.hasDeflected = true;
-                    deflectedCount++;
-                    deflectDisplay.innerText = deflectedCount;
+                // Trail management
+                if (this.history.length === 0 || 
+                    Math.abs(this.x - this.history[this.history.length-1].x) > 4 ||
+                    Math.abs(this.y - this.history[this.history.length-1].y) > 4) {
+                    this.history.push({x: this.x, y: this.y});
+                }
+                if (this.history.length > 40) this.history.shift();
+
+                // Stats for Rutherford Backscatter
+                if (MODE === 'rutherford' && !this.deflected) {
+                    // If moving left (vx < 0), it bounced back
+                    if (this.vx < 0) {
+                        this.deflected = true;
+                        backScatters++;
+                        uiHit.innerText = backScatters;
+                    }
                 }
 
-                // Check Bounds
-                if (this.x < -50 || this.x > WIDTH + 50 || this.y < -50 || this.y > HEIGHT + 50) {
+                // Kill if off screen
+                if (this.x > width + 50 || this.x < -50 || this.y < -50 || this.y > height + 50) {
                     this.dead = true;
                 }
             }
 
             draw() {
-                // Draw Trail
                 ctx.beginPath();
-                ctx.strokeStyle = `rgba(255, 235, 59, 0.3)`; // Yellow trail
-                if (this.trail.length > 0) {
-                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
-                    for (let p of this.trail) ctx.lineTo(p.x, p.y);
+                ctx.strokeStyle = 'rgba(255, 235, 59, 0.4)';
+                ctx.lineWidth = 2;
+                if (this.history.length > 0) {
+                    ctx.moveTo(this.history[0].x, this.history[0].y);
+                    for (let p of this.history) ctx.lineTo(p.x, p.y);
                 }
                 ctx.lineTo(this.x, this.y);
                 ctx.stroke();
 
-                // Draw Head
                 ctx.fillStyle = '#ffeb3b';
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, 2, 0, Math.PI*2);
+                ctx.arc(this.x, this.y, 2.5, 0, Math.PI*2);
                 ctx.fill();
             }
         }
 
-        // --- Initialization ---
-        
+        // --- Main Logic ---
+
         function initAtoms() {
             atoms = [];
-            // create a grid of atoms centered in the canvas
-            let startX = WIDTH/2 - ATOM_SPACING_X;
-            let startY = HEIGHT/2 - ATOM_SPACING_Y;
+            // Create a centered layout of atoms
+            const rows = 3;
+            const cols = 3;
+            const spacingX = 140;
+            const spacingY = 140;
+            
+            let startX = (width / 2) - ((cols-1) * spacingX) / 2;
+            let startY = (height / 2) - ((rows-1) * spacingY) / 2;
 
-            for (let r = 0; r < ATOM_ROWS; r++) {
-                for (let c = 0; c < ATOM_COLS; c++) {
-                    atoms.push(new Atom(startX + c*ATOM_SPACING_X, startY + r*ATOM_SPACING_Y));
+            for(let r=0; r<rows; r++) {
+                for(let c=0; c<cols; c++) {
+                    // Add slight offset to make it look natural
+                    let offY = (c % 2 === 0) ? 0 : 30; 
+                    atoms.push(new Atom(startX + c*spacingX, startY + r*spacingY + offY));
                 }
             }
         }
 
-        // --- Main Loop ---
-
         function loop() {
-            // Clear background (leave faint trail for 'persistence' effect? No, clean clear is better here)
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // Slight blur trail effect
-            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+            // Fade effect for trails? No, clear fully for clean physics lines
+            ctx.fillStyle = 'black'; 
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw Atoms
+            for (let a of atoms) a.draw();
 
             // Spawn Particles
             spawnTimer++;
-            let spawnRate = 11 - parseInt(rateSlider.value); // Inverse slider logic
-            if (spawnTimer >= spawnRate) {
-                let speed = parseFloat(speedSlider.value);
-                particles.push(new Particle(speed));
+            // Spawn faster if slider is high
+            if (spawnTimer > 5) {
+                particles.push(new Particle());
                 spawnTimer = 0;
             }
 
-            // Draw Atoms
-            for (let atom of atoms) atom.draw();
-
-            // Update & Draw Particles
+            // Update Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
                 p.update();
@@ -332,47 +416,37 @@
                 if (p.dead) particles.splice(i, 1);
             }
 
-            // Update count UI
-            countDisplay.innerText = particleIdCounter;
-
             requestAnimationFrame(loop);
         }
 
-        // --- Controls ---
+        // --- Event Listeners ---
+
+        document.getElementById('btn-clear').onclick = () => {
+            particles = [];
+            totalParticles = 0;
+            backScatters = 0;
+            uiTotal.innerText = "0";
+            uiHit.innerText = "0";
+        };
 
         btnPlum.onclick = () => {
             MODE = 'plum';
-            resetSim();
             btnPlum.classList.add('active');
             btnRuth.classList.remove('active');
-            desc.innerHTML = "Current: <b>Plum Pudding</b>. Positive charge is diffuse. Alpha particles plow through the soft 'soup' like bullets through fog.";
+            legendText.innerText = "Positive charge is spread out. The weak electric field causes only minor deviations. No backscattering.";
+            particles = []; // Clear to show fresh behavior
         };
 
         btnRuth.onclick = () => {
             MODE = 'rutherford';
-            resetSim();
             btnRuth.classList.add('active');
             btnPlum.classList.remove('active');
-            desc.innerHTML = "Current: <b>Nuclear Model</b>. Mass and charge are concentrated. Most particles pass through empty space, but a direct hit causes massive deflection.";
-        };
-
-        btnClear.onclick = () => {
-            resetSim();
-        };
-
-        function resetSim() {
+            legendText.innerText = "Positive charge is concentrated. Direct hits cause massive deflection (backscattering).";
             particles = [];
-            deflectedCount = 0;
-            particleIdCounter = 0;
-            countDisplay.innerText = "0";
-            deflectDisplay.innerText = "0";
-            // Clear canvas fully immediately
-            ctx.fillStyle = 'black';
-            ctx.fillRect(0, 0, WIDTH, HEIGHT);
-        }
+        };
 
-        // Start
-        initAtoms();
+        // Init
+        resize(); // Set initial size
         loop();
 
     </script>
