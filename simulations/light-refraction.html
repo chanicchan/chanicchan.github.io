@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refraction Simulation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            padding: 20px;
+        }
+        h1 { color: #333; }
+        .container {
+            display: flex;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            background-color: #fff;
+            cursor: crosshair;
+        }
+        .controls {
+            width: 300px;
+            padding: 10px;
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .data-display {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .data-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .note {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+        }
+        .warning {
+            color: #d9534f;
+            font-weight: bold;
+            display: none; /* Hidden by default */
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #d9534f;
+            border-radius: 5px;
+            background-color: #f9e2e2;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Light Refraction Simulator</h1>
+
+    <div class="container">
+        <canvas id="simCanvas" width="500" height="500"></canvas>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Incident Medium (n₁): <span id="n1-val">1.00</span></label>
+                <input type="range" id="n1" min="1.00" max="2.50" step="0.01" value="1.00">
+                <div class="note">Example: Air ≈ 1.00, Water ≈ 1.33</div>
+            </div>
+
+            <div class="control-group">
+                <label>Refractive Medium (n₂): <span id="n2-val">1.50</span></label>
+                <input type="range" id="n2" min="1.00" max="2.50" step="0.01" value="1.50">
+                <div class="note">Example: Glass ≈ 1.50, Diamond ≈ 2.42</div>
+            </div>
+
+            <div class="control-group">
+                <label>Angle of Incidence (θ₁): <span id="angle-val">45°</span></label>
+                <input type="range" id="angle" min="0" max="89" step="1" value="45">
+            </div>
+
+            <div class="data-display">
+                <h3>Results</h3>
+                <div class="data-item">
+                    <span>Calculated Angle (θ₂):</span>
+                    <span id="res-angle">--</span>
+                </div>
+                <div class="data-item">
+                    <span>Velocity Ratio (v₁/v₂):</span>
+                    <span id="res-velocity">--</span>
+                </div>
+            </div>
+
+            <div id="tir-warning" class="warning">
+                TOTAL INTERNAL REFLECTION!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // UI Elements
+        const n1Input = document.getElementById('n1');
+        const n2Input = document.getElementById('n2');
+        const angleInput = document.getElementById('angle');
+        const n1Display = document.getElementById('n1-val');
+        const n2Display = document.getElementById('n2-val');
+        const angleDisplay = document.getElementById('angle-val');
+        const resAngleDisplay = document.getElementById('res-angle');
+        const resVelDisplay = document.getElementById('res-velocity');
+        const tirWarning = document.getElementById('tir-warning');
+
+        // Update loop
+        function update() {
+            // 1. Get Values
+            const n1 = parseFloat(n1Input.value);
+            const n2 = parseFloat(n2Input.value);
+            const theta1Deg = parseFloat(angleInput.value);
+            
+            // Update Text Displays
+            n1Display.textContent = n1.toFixed(2);
+            n2Display.textContent = n2.toFixed(2);
+            angleDisplay.textContent = theta1Deg + "°";
+
+            // 2. Physics Calculations (Snell's Law)
+            const theta1Rad = theta1Deg * (Math.PI / 180);
+            
+            // n1 * sin(t1) = n2 * sin(t2) -> sin(t2) = (n1/n2) * sin(t1)
+            const sinTheta2 = (n1 / n2) * Math.sin(theta1Rad);
+            
+            let theta2Rad = 0;
+            let isTIR = false;
+
+            if (Math.abs(sinTheta2) > 1.0) {
+                isTIR = true;
+                tirWarning.style.display = 'block';
+                resAngleDisplay.textContent = "N/A (TIR)";
+            } else {
+                isTIR = false;
+                theta2Rad = Math.asin(sinTheta2);
+                tirWarning.style.display = 'none';
+                const theta2Deg = theta2Rad * (180 / Math.PI);
+                resAngleDisplay.textContent = theta2Deg.toFixed(1) + "°";
+            }
+
+            // Calculate Velocity Ratio
+            const vRatio = n2 / n1; 
+            resVelDisplay.textContent = vRatio.toFixed(2);
+
+            // 3. Draw Everything
+            drawScene(n1, n2, theta1Rad, theta2Rad, isTIR);
+        }
+
+        function drawScene(n1, n2, t1, t2, isTIR) {
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw Backgrounds (Visualizing density with opacity)
+            // Top Half (Medium 1)
+            ctx.fillStyle = `rgba(200, 230, 255, ${0.1 + (n1 - 1) * 0.3})`; 
+            ctx.fillRect(0, 0, width, centerY);
+            
+            // Bottom Half (Medium 2)
+            ctx.fillStyle = `rgba(200, 230, 255, ${0.1 + (n2 - 1) * 0.3})`; 
+            ctx.fillRect(0, centerY, width, height / 2);
+
+            // Draw Boundary
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.stroke();
+
+            // Draw Normal Line
+            ctx.strokeStyle = "#999";
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(centerX, 50);
+            ctx.lineTo(centerX, height - 50);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const rayLength = 200;
+
+            // --- Incident Ray (Red) ---
+            // Calculate start point based on angle
+            // Angle is relative to Normal (Y-axis)
+            // x = r * sin(theta), y = r * cos(theta)
+            // We subtract/add to center coordinates
+            const incX = centerX - rayLength * Math.sin(t1);
+            const incY = centerY - rayLength * Math.cos(t1);
+
+            ctx.strokeStyle = "#D32F2F"; // Red
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(incX, incY);
+            ctx.lineTo(centerX, centerY); // Hit the center
+            ctx.stroke();
+            
+            // Draw Arrow on Incident Ray
+            drawArrow(incX, incY, centerX, centerY, "#D32F2F");
+
+            // --- Refracted/Reflected Ray (Blue) ---
+            ctx.strokeStyle = "#1976D2"; // Blue
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+
+            if (isTIR) {
+                // Total Internal Reflection: Ray reflects back into Medium 1
+                // Angle of reflection = Angle of incidence
+                const refX = centerX + rayLength * Math.sin(t1);
+                const refY = centerY - rayLength * Math.cos(t1);
+                ctx.lineTo(refX, refY);
+                ctx.stroke();
+                drawArrow(centerX, centerY, refX, refY, "#1976D2");
+            } else {
+                // Refraction: Ray goes into Medium 2
+                const refX = centerX + rayLength * Math.sin(t2);
+                const refY = centerY + rayLength * Math.cos(t2);
+                ctx.lineTo(refX, refY);
+                ctx.stroke();
+                drawArrow(centerX, centerY, refX, refY, "#1976D2");
+            }
+
+            // Labels
+            ctx.fillStyle = "#000";
+            ctx.font = "14px Arial";
+            ctx.fillText(`n₁ = ${n1}`, 10, 20);
+            ctx.fillText(`n₂ = ${n2}`, 10, centerY + 20);
+        }
+
+        function drawArrow(x1, y1, x2, y2, color) {
+            const headlen = 10; 
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(midX, midY);
+            ctx.lineTo(midX - headlen * Math.cos(angle - Math.PI / 6), midY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(midX - headlen * Math.cos(angle + Math.PI / 6), midY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.fill();
+        }
+
+        // Event Listeners
+        n1Input.addEventListener('input', update);
+        n2Input.addEventListener('input', update);
+        angleInput.addEventListener('input', update);
+
+        // Initial call
+        update();
+    </script>
+</body>
+</html>

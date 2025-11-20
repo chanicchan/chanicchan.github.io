@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rutherford Scattering Simulation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+        .main-container {
+            display: flex;
+            gap: 20px;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        canvas {
+            background-color: #000;
+            border: 2px solid #444;
+            border-radius: 4px;
+            cursor: crosshair;
+        }
+        .controls {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .control-group {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #00bcd4;
+        }
+        .control-group h3 {
+            margin-top: 0;
+            color: #00bcd4;
+            font-size: 1.1em;
+        }
+        label { display: block; margin-bottom: 5px; font-size: 0.9em; }
+        input[type="range"] { width: 100%; }
+        
+        button {
+            background: #444;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background: #555; }
+        button.active {
+            background: #00bcd4;
+            color: #000;
+        }
+
+        .stats {
+            font-family: monospace;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        .legend {
+            display: flex;
+            gap: 10px;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+        .dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; }
+        .legend-alpha { background: #ffeb3b; }
+        .legend-nucleus { background: #ff5722; }
+    </style>
+</head>
+<body>
+
+    <h1>Rutherford Alpha Scattering</h1>
+
+    <div class="main-container">
+        <canvas id="simCanvas" width="600" height="400"></canvas>
+
+        <div class="controls">
+            <div class="control-group">
+                <h3>1. Select Atomic Model</h3>
+                <div style="display: flex; gap: 5px;">
+                    <button id="btn-plum" style="flex:1;">Plum Pudding</button>
+                    <button id="btn-rutherford" class="active" style="flex:1;">Rutherford</button>
+                </div>
+                <p id="model-desc" style="font-size: 0.85em; color: #ccc; margin-top: 10px;">
+                    Current: <b>Nuclear Model</b>. Positive charge is concentrated in a tiny, dense nucleus.
+                </p>
+            </div>
+
+            <div class="control-group">
+                <h3>2. Alpha Particle Beam</h3>
+                <label>Beam Energy (Speed):</label>
+                <input type="range" id="speed-slider" min="2" max="15" value="6">
+                
+                <label>Fire Rate:</label>
+                <input type="range" id="rate-slider" min="1" max="10" value="2">
+
+                <button id="btn-clear" style="width: 100%; margin-top: 10px;">Clear Trails</button>
+            </div>
+
+            <div class="control-group">
+                <h3>Stats</h3>
+                <div class="stats">
+                    Particles: <span id="p-count">0</span><br>
+                    Deflected (>90°): <span id="p-deflected">0</span>
+                </div>
+                <div class="legend">
+                    <div><span class="dot legend-alpha"></span> Alpha (&alpha;)</div>
+                    <div><span class="dot legend-nucleus"></span> Nucleus (+)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Simulation Constants
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+        const ATOM_ROWS = 3;
+        const ATOM_COLS = 3;
+        const ATOM_SPACING_X = 120;
+        const ATOM_SPACING_Y = 100;
+        
+        // Physics Constants
+        let COULOMB_K = 2000; // Strength of repulsion
+        let MODE = 'rutherford'; // 'plum' or 'rutherford'
+        
+        // State
+        let particles = [];
+        let atoms = [];
+        let particleIdCounter = 0;
+        let deflectedCount = 0;
+        let spawnTimer = 0;
+
+        // UI References
+        const btnPlum = document.getElementById('btn-plum');
+        const btnRuth = document.getElementById('btn-rutherford');
+        const desc = document.getElementById('model-desc');
+        const speedSlider = document.getElementById('speed-slider');
+        const rateSlider = document.getElementById('rate-slider');
+        const btnClear = document.getElementById('btn-clear');
+        const countDisplay = document.getElementById('p-count');
+        const deflectDisplay = document.getElementById('p-deflected');
+
+        // --- Classes ---
+
+        class Atom {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+            }
+
+            draw() {
+                if (MODE === 'rutherford') {
+                    // Draw tiny, dense nucleus
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ff5722'; // Deep Orange
+                    ctx.fill();
+                    // Weak electron cloud visual (faint ring)
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 40, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.stroke();
+                } else {
+                    // Draw "Plum Pudding" (Large diffuse positive sphere)
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 40, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 87, 34, 0.2)'; // Faint Orange
+                    ctx.fill();
+                    
+                    // Draw "plums" (electrons)
+                    ctx.fillStyle = '#fff';
+                    ctx.font = "10px Arial";
+                    ctx.fillText("-", this.x - 10, this.y - 10);
+                    ctx.fillText("-", this.x + 15, this.y + 5);
+                    ctx.fillText("-", this.x - 5, this.y + 20);
+                }
+            }
+        }
+
+        class Particle {
+            constructor(speed) {
+                this.id = particleIdCounter++;
+                // Start on left side
+                this.x = 0;
+                // Random Y, but concentrated around the atoms for better demo
+                // Add some randomness so they don't all hit the exact center line
+                this.y = (HEIGHT/2 - 150) + Math.random() * 300; 
+                
+                this.vx = speed;
+                this.vy = 0;
+                this.trail = [];
+                this.hasDeflected = false;
+                this.dead = false;
+            }
+
+            update() {
+                // Save position for trail
+                if (this.trail.length === 0 || 
+                    Math.hypot(this.trail[this.trail.length-1].x - this.x, this.trail[this.trail.length-1].y - this.y) > 5) {
+                    this.trail.push({x: this.x, y: this.y});
+                }
+                // Limit trail length for performance
+                if (this.trail.length > 50) this.trail.shift();
+
+                // Physics Interactions
+                if (MODE === 'rutherford') {
+                    for (let atom of atoms) {
+                        let dx = this.x - atom.x;
+                        let dy = this.y - atom.y;
+                        let distSq = dx*dx + dy*dy;
+                        let dist = Math.sqrt(distSq);
+
+                        // Coulomb Repulsion: F = k / r^2
+                        // Only apply if reasonably close to save CPU and avoid weird edge cases
+                        if (dist < 80 && dist > 2) { 
+                            let force = COULOMB_K / distSq;
+                            
+                            // Decompose force
+                            let fx = force * (dx / dist);
+                            let fy = force * (dy / dist);
+
+                            this.vx += fx;
+                            this.vy += fy;
+                        }
+                    }
+                } else {
+                    // Plum Pudding Logic
+                    // Technically, field decreases inside a uniform sphere, 
+                    // and alpha particles are heavy/fast. 
+                    // Result: Almost straight lines. We add tiny jitter to simulate "drag" or minor interaction.
+                    if (Math.random() < 0.05) {
+                        this.vy += (Math.random() - 0.5) * 0.05;
+                    }
+                }
+
+                // Move
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Check Backscattering/Deflection
+                if (!this.hasDeflected && this.vx < 0) {
+                    this.hasDeflected = true;
+                    deflectedCount++;
+                    deflectDisplay.innerText = deflectedCount;
+                }
+
+                // Check Bounds
+                if (this.x < -50 || this.x > WIDTH + 50 || this.y < -50 || this.y > HEIGHT + 50) {
+                    this.dead = true;
+                }
+            }
+
+            draw() {
+                // Draw Trail
+                ctx.beginPath();
+                ctx.strokeStyle = `rgba(255, 235, 59, 0.3)`; // Yellow trail
+                if (this.trail.length > 0) {
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    for (let p of this.trail) ctx.lineTo(p.x, p.y);
+                }
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
+
+                // Draw Head
+                ctx.fillStyle = '#ffeb3b';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        // --- Initialization ---
+        
+        function initAtoms() {
+            atoms = [];
+            // create a grid of atoms centered in the canvas
+            let startX = WIDTH/2 - ATOM_SPACING_X;
+            let startY = HEIGHT/2 - ATOM_SPACING_Y;
+
+            for (let r = 0; r < ATOM_ROWS; r++) {
+                for (let c = 0; c < ATOM_COLS; c++) {
+                    atoms.push(new Atom(startX + c*ATOM_SPACING_X, startY + r*ATOM_SPACING_Y));
+                }
+            }
+        }
+
+        // --- Main Loop ---
+
+        function loop() {
+            // Clear background (leave faint trail for 'persistence' effect? No, clean clear is better here)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // Slight blur trail effect
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            // Spawn Particles
+            spawnTimer++;
+            let spawnRate = 11 - parseInt(rateSlider.value); // Inverse slider logic
+            if (spawnTimer >= spawnRate) {
+                let speed = parseFloat(speedSlider.value);
+                particles.push(new Particle(speed));
+                spawnTimer = 0;
+            }
+
+            // Draw Atoms
+            for (let atom of atoms) atom.draw();
+
+            // Update & Draw Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.update();
+                p.draw();
+                if (p.dead) particles.splice(i, 1);
+            }
+
+            // Update count UI
+            countDisplay.innerText = particleIdCounter;
+
+            requestAnimationFrame(loop);
+        }
+
+        // --- Controls ---
+
+        btnPlum.onclick = () => {
+            MODE = 'plum';
+            resetSim();
+            btnPlum.classList.add('active');
+            btnRuth.classList.remove('active');
+            desc.innerHTML = "Current: <b>Plum Pudding</b>. Positive charge is diffuse. Alpha particles plow through the soft 'soup' like bullets through fog.";
+        };
+
+        btnRuth.onclick = () => {
+            MODE = 'rutherford';
+            resetSim();
+            btnRuth.classList.add('active');
+            btnPlum.classList.remove('active');
+            desc.innerHTML = "Current: <b>Nuclear Model</b>. Mass and charge are concentrated. Most particles pass through empty space, but a direct hit causes massive deflection.";
+        };
+
+        btnClear.onclick = () => {
+            resetSim();
+        };
+
+        function resetSim() {
+            particles = [];
+            deflectedCount = 0;
+            particleIdCounter = 0;
+            countDisplay.innerText = "0";
+            deflectDisplay.innerText = "0";
+            // Clear canvas fully immediately
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        }
+
+        // Start
+        initAtoms();
+        loop();
+
+    </script>
+</body>
+</html>
