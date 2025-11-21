@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadratic Function Explorer</title>
+    <style>
+        :root {
+            --primary: #3f51b5;
+            --accent: #ff4081;
+            --vertex-color: #d50000;
+            --root-color: #2962ff;
+            --intercept-color: #00c853;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { margin-top: 0; }
+        .main-layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            max-width: 1000px;
+            width: 100%;
+        }
+        .canvas-container {
+            position: relative;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background-color: #fff;
+            cursor: crosshair;
+        }
+        .coordinate-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 0.8rem;
+            display: none;
+        }
+        .controls-panel {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .equation-display {
+            font-family: 'Times New Roman', serif;
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #e8eaf6;
+            border-radius: 8px;
+            font-style: italic;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        .stats-panel {
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        .color-box {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .legend {
+            font-size: 0.85rem;
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        /* Math formatting */
+        sup { font-size: 0.6em; }
+    </style>
+</head>
+<body>
+
+    <h1>Quadratic Function Explorer</h1>
+
+    <div class="main-layout">
+        <div class="canvas-container">
+            <canvas id="graphCanvas" width="500" height="500"></canvas>
+            <div id="tooltip" class="coordinate-tooltip"></div>
+        </div>
+
+        <div class="controls-panel">
+            <div class="equation-display" id="eq-display">
+                y = 1x<sup>2</sup> + 0x + 0
+            </div>
+
+            <div class="control-group">
+                <label>Coefficient a: <span id="val-a">1.0</span></label>
+                <input type="range" id="input-a" min="-5" max="5" step="0.1" value="1">
+            </div>
+            <div class="control-group">
+                <label>Coefficient b: <span id="val-b">0.0</span></label>
+                <input type="range" id="input-b" min="-10" max="10" step="0.5" value="0">
+            </div>
+            <div class="control-group">
+                <label>Constant c: <span id="val-c">0.0</span></label>
+                <input type="range" id="input-c" min="-10" max="10" step="0.5" value="0">
+            </div>
+            <div class="control-group">
+                <label>Zoom Level: <span id="val-zoom">25px</span></label>
+                <input type="range" id="input-zoom" min="10" max="50" step="1" value="25">
+            </div>
+
+            <div class="stats-panel">
+                <h3>Properties</h3>
+                <div class="stat-item">
+                    <span>Discriminant (Δ):</span>
+                    <strong id="stat-disc">0</strong>
+                </div>
+                <div class="stat-item">
+                    <span>Nature of Roots:</span>
+                    <span id="stat-nature">1 Real Root</span>
+                </div>
+                <div class="stat-item">
+                    <span>Vertex Form:</span>
+                    <span id="stat-vertex-form" style="font-family: 'Times New Roman', serif; font-style: italic;">y = x²</span>
+                </div>
+            </div>
+
+            <div class="legend">
+                <span><span class="color-box" style="background:var(--vertex-color)"></span>Vertex</span>
+                <span><span class="color-box" style="background:var(--root-color)"></span>Roots</span>
+                <span><span class="color-box" style="background:var(--intercept-color)"></span>Y-Intercept</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('tooltip');
+
+        // UI Elements
+        const inputA = document.getElementById('input-a');
+        const inputB = document.getElementById('input-b');
+        const inputC = document.getElementById('input-c');
+        const inputZoom = document.getElementById('input-zoom');
+        
+        const displayEq = document.getElementById('eq-display');
+        const statDisc = document.getElementById('stat-disc');
+        const statNature = document.getElementById('stat-nature');
+        const statVertexForm = document.getElementById('stat-vertex-form');
+
+        // State
+        let a = 1;
+        let b = 0;
+        let c = 0;
+        let scale = 25; // pixels per unit
+        let offsetX = canvas.width / 2;
+        let offsetY = canvas.height / 2;
+
+        function update() {
+            // 1. Get Values
+            a = parseFloat(inputA.value);
+            b = parseFloat(inputB.value);
+            c = parseFloat(inputC.value);
+            scale = parseFloat(inputZoom.value);
+
+            // Update Labels
+            document.getElementById('val-a').textContent = a.toFixed(1);
+            document.getElementById('val-b').textContent = b.toFixed(1);
+            document.getElementById('val-c').textContent = c.toFixed(1);
+            document.getElementById('val-zoom').textContent = scale + "px";
+
+            // 2. Update Equation Text
+            updateEquationDisplay();
+
+            // 3. Calculate Properties
+            calculateProperties();
+
+            // 4. Draw
+            draw();
+        }
+
+        function updateEquationDisplay() {
+            let text = "y = ";
+            
+            // A term
+            if (a !== 0) {
+                if (a === -1) text += "-";
+                else if (a !== 1) text += a;
+                text += "x<sup>2</sup>";
+            }
+
+            // B term
+            if (b !== 0) {
+                if (b > 0 && a !== 0) text += " + ";
+                else if (b < 0) text += " - ";
+                text += Math.abs(b) + "x";
+            }
+
+            // C term
+            if (c !== 0) {
+                if (c > 0 && (a!==0 || b!==0)) text += " + ";
+                else if (c < 0) text += " - ";
+                text += Math.abs(c);
+            }
+
+            if (a===0 && b===0 && c===0) text += "0";
+
+            displayEq.innerHTML = text;
+        }
+
+        function calculateProperties() {
+            // Discriminant: b^2 - 4ac
+            const disc = (b * b) - (4 * a * c);
+            statDisc.textContent = disc.toFixed(2);
+            
+            if (a === 0) {
+                statNature.textContent = "Linear Equation";
+                statVertexForm.textContent = "N/A";
+                return;
+            }
+
+            if (disc > 0) statNature.textContent = "2 Real Roots";
+            else if (disc === 0) statNature.textContent = "1 Real Root";
+            else statNature.textContent = "No Real Roots";
+
+            // Vertex Form: y = a(x-h)^2 + k
+            // h = -b / 2a
+            // k = c - b^2 / 4a
+            const h = -b / (2 * a);
+            const k = c - (b * b) / (4 * a);
+
+            let vText = "y = ";
+            if (a === -1) vText += "-";
+            else if (a !== 1) vText += a;
+            
+            vText += "(x";
+            if (h > 0) vText += " - " + h.toFixed(2);
+            else if (h < 0) vText += " + " + Math.abs(h).toFixed(2);
+            vText += ")²";
+
+            if (k > 0) vText += " + " + k.toFixed(2);
+            else if (k < 0) vText += " - " + Math.abs(k).toFixed(2);
+
+            statVertexForm.innerText = vText;
+        }
+
+        // Coordinate Conversions
+        function toCanvasX(mathX) { return offsetX + (mathX * scale); }
+        function toCanvasY(mathY) { return offsetY - (mathY * scale); } // Y is flipped
+        function toMathX(canvX) { return (canvX - offsetX) / scale; }
+        function toMathY(canvY) { return (offsetY - canvY) / scale; }
+
+        function f(x) {
+            return (a * x * x) + (b * x) + c;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // --- Draw Grid ---
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = "#e0e0e0";
+            ctx.beginPath();
+            
+            // Vertical Grid lines
+            let startX = Math.floor(-offsetX / scale);
+            let endX = Math.ceil((canvas.width - offsetX) / scale);
+            for (let x = startX; x <= endX; x++) {
+                ctx.moveTo(toCanvasX(x), 0);
+                ctx.lineTo(toCanvasX(x), canvas.height);
+            }
+
+            // Horizontal Grid lines
+            let startY = Math.floor(-(canvas.height - offsetY) / scale);
+            let endY = Math.ceil(offsetY / scale);
+            for (let y = startY; y <= endY; y++) {
+                ctx.moveTo(0, toCanvasY(y));
+                ctx.lineTo(canvas.width, toCanvasY(y));
+            }
+            ctx.stroke();
+
+            // --- Draw Axes ---
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#666";
+            ctx.beginPath();
+            // X Axis
+            ctx.moveTo(0, offsetY);
+            ctx.lineTo(canvas.width, offsetY);
+            // Y Axis
+            ctx.moveTo(offsetX, 0);
+            ctx.lineTo(offsetX, canvas.height);
+            ctx.stroke();
+
+            // --- Draw Parabola ---
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "#3f51b5";
+            ctx.beginPath();
+            
+            // Iterate pixel by pixel for smoothness
+            let startPixelX = 0;
+            let started = false;
+            for (let px = 0; px < canvas.width; px++) {
+                let mx = toMathX(px);
+                let my = f(mx);
+                let py = toCanvasY(my);
+
+                // Avoid drawing insane values off-screen that confuse the renderer
+                if (py < -1000 || py > canvas.height + 1000) {
+                    started = false; // reset path if we go way off screen
+                    continue;
+                }
+
+                if (!started) {
+                    ctx.moveTo(px, py);
+                    started = true;
+                } else {
+                    ctx.lineTo(px, py);
+                }
+            }
+            ctx.stroke();
+
+            // --- Key Features ---
+            if (a !== 0) {
+                // 1. Vertex
+                const h = -b / (2 * a);
+                const k = f(h);
+                drawPoint(h, k, '#d50000', 5);
+
+                // 2. Roots
+                const disc = (b * b) - (4 * a * c);
+                if (disc >= 0) {
+                    const r1 = (-b + Math.sqrt(disc)) / (2 * a);
+                    const r2 = (-b - Math.sqrt(disc)) / (2 * a);
+                    drawPoint(r1, 0, '#2962ff', 4);
+                    drawPoint(r2, 0, '#2962ff', 4);
+                }
+            }
+
+            // 3. Y-Intercept (x=0)
+            drawPoint(0, c, '#00c853', 4);
+        }
+
+        function drawPoint(x, y, color, size) {
+            const cx = toCanvasX(x);
+            const cy = toCanvasY(y);
+            
+            // Only draw if roughly on screen
+            if (cx < -20 || cx > canvas.width + 20 || cy < -20 || cy > canvas.height + 20) return;
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(cx, cy, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Mouse Interaction
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            // Calculate closest point on curve to mouse X
+            const mathX = toMathX(mx);
+            const mathY = f(mathX);
+            const curveY = toCanvasY(mathY);
+
+            // If mouse is relatively close to the curve
+            if (Math.abs(my - curveY) < 50) {
+                // Draw tracking dot
+                draw(); // Redraw scene to clear previous dots
+                drawPoint(mathX, mathY, '#333', 3);
+                
+                // Show tooltip
+                tooltip.style.display = 'block';
+                tooltip.style.left = (mx + 15) + 'px';
+                tooltip.style.top = (curveY - 15) + 'px';
+                tooltip.textContent = `(${mathX.toFixed(2)}, ${mathY.toFixed(2)})`;
+            } else {
+                draw(); // clear dot
+                tooltip.style.display = 'none';
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+            draw();
+        });
+
+        // Listeners
+        inputA.addEventListener('input', update);
+        inputB.addEventListener('input', update);
+        inputC.addEventListener('input', update);
+        inputZoom.addEventListener('input', update);
+
+        // Init
+        update();
+
+    </script>
+</body>
+</html>
