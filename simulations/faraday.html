@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faraday's Law Simulation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #222;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        h1 { margin: 10px 0; font-size: 1.2rem; color: #ffca28; }
+
+        .simulation-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            flex-grow: 1;
+            background: #333;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+            touch-action: none;
+        }
+        canvas:active { cursor: grabbing; }
+
+        .controls {
+            background: #1a1a1a;
+            width: 100%;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            border-top: 1px solid #444;
+            z-index: 10;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 120px;
+        }
+
+        label { font-size: 0.85rem; margin-bottom: 5px; color: #aaa; }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ffca28;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #555;
+            border-radius: 2px;
+        }
+
+        .btn-toggle {
+            background: #444;
+            border: 1px solid #666;
+            color: white;
+            padding: 5px 15px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn-toggle:hover { background: #555; }
+
+        /* Digital Readout Styles */
+        .digital-multimeter {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #111;
+            border: 2px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', Courier, monospace;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            width: 200px;
+            pointer-events: none; 
+        }
+        
+        .lcd-screen {
+            background: #2b3628; 
+            color: #4caf50; 
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            border: inset 2px #1a2218;
+            text-align: right;
+        }
+        
+        .lcd-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            display: block;
+            text-shadow: 0 0 2px #4caf50;
+        }
+        
+        .lcd-label {
+            font-size: 0.7rem;
+            color: #7d967a;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 2px;
+        }
+        
+        .bar-container {
+            height: 8px;
+            background: #1a2218;
+            border-radius: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            background: #4caf50;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        .instruction-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            pointer-events: none;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Electromagnetic Induction Explorer</h1>
+
+    <div class="simulation-container">
+        <canvas id="simCanvas"></canvas>
+        
+        <!-- Digital Multimeter UI -->
+        <div class="digital-multimeter">
+            <div class="lcd-screen">
+                <span class="lcd-label">Induced EMF (Voltage)</span>
+                <span id="disp-volt" class="lcd-value">0.00 V</span>
+                <div class="bar-container">
+                    <div id="bar-volt" class="bar-fill"></div>
+                </div>
+            </div>
+            
+            <div class="lcd-screen">
+                <span class="lcd-label">Induced Current</span>
+                <span id="disp-curr" class="lcd-value">0.00 A</span>
+                <div class="bar-container">
+                    <div id="bar-curr" class="bar-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="instruction-overlay">
+            Drag the magnet briskly through the coil center
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Number of Loops (N)</label>
+            <input type="range" id="loops" min="1" max="3" step="1" value="2">
+            <span id="loops-val">2</span>
+        </div>
+        <div class="control-group">
+            <label>Flip Polarity</label>
+            <button class="btn-toggle" onclick="flipMagnet()">Swap N/S</button>
+        </div>
+        <div class="control-group">
+            <label>Show Field Lines</label>
+            <input type="checkbox" id="show-field" checked>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.querySelector('.simulation-container');
+        const loopsInput = document.getElementById('loops');
+        const loopsVal = document.getElementById('loops-val');
+        
+        // Digital Readout Elements
+        const dispVolt = document.getElementById('disp-volt');
+        const dispCurr = document.getElementById('disp-curr');
+        const barVolt = document.getElementById('bar-volt');
+        const barCurr = document.getElementById('bar-curr');
+        
+        // --- Physics State ---
+        let magnetX = 0;
+        let magnetY = 0;
+        let magnetPolarity = 1; // 1 = N on left, -1 = N on right
+        let numLoops = 2;
+        const RESISTANCE = 10; // Ohms
+        
+        // Physics & Dragging
+        let lastX = 0;
+        let velocity = 0;
+        let voltage = 0;
+        let current = 0;
+        let electronOffset = 0;
+        
+        let isDragging = false;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        
+        let width = 0; 
+        let height = 0;
+        let coilX = null; 
+        let coilY = null;
+
+        // --- Init & Resize ---
+        function resize() {
+            width = container.clientWidth;
+            height = container.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+            
+            coilX = width / 2;
+            coilY = height / 2;
+            
+            if (magnetX === 0) {
+                magnetX = width * 0.2;
+                magnetY = height / 2;
+                lastX = magnetX;
+            }
+            draw();
+        }
+        
+        window.addEventListener('resize', resize);
+        resize();
+        setTimeout(resize, 50);
+
+        // --- Interaction ---
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const cx = e.touches ? e.touches[0].clientX : e.clientX;
+            const cy = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: cx - rect.left, y: cy - rect.top };
+        }
+
+        function startDrag(e) {
+            const pos = getPos(e);
+            if (Math.abs(pos.x - magnetX) < 90 && Math.abs(pos.y - magnetY) < 50) {
+                isDragging = true;
+                dragOffsetX = magnetX - pos.x;
+                dragOffsetY = magnetY - pos.y;
+                lastX = magnetX; 
+            }
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const pos = getPos(e);
+            
+            magnetX = pos.x + dragOffsetX;
+            magnetY = pos.y + dragOffsetY;
+            
+            magnetX = Math.max(50, Math.min(width - 50, magnetX));
+            magnetY = Math.max(50, Math.min(height - 50, magnetY));
+        }
+
+        function endDrag() {
+            isDragging = false;
+        }
+
+        canvas.addEventListener('mousedown', startDrag);
+        window.addEventListener('mousemove', drag); 
+        window.addEventListener('mouseup', endDrag);
+        
+        canvas.addEventListener('touchstart', startDrag, {passive: false});
+        window.addEventListener('touchmove', drag, {passive: false});
+        window.addEventListener('touchend', endDrag);
+
+        function flipMagnet() {
+            magnetPolarity *= -1;
+        }
+
+        loopsInput.addEventListener('input', (e) => {
+            numLoops = parseInt(e.target.value);
+            loopsVal.innerText = numLoops;
+        });
+
+        // --- Main Loop ---
+        function loop() {
+            if (coilX === null || coilY === null || width === 0) {
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            // 1. Calculate Velocity
+            let instantaneousVel = (magnetX - lastX);
+            
+            // 2. Physics: Faraday's Law
+            let dx = magnetX - coilX;
+            let dy = magnetY - coilY;
+            
+            let interaction = Math.exp(-(dx*dx)/15000) * Math.exp(-(dy*dy)/12000);
+            
+            // Physics scaling maintained at reduced sensitivity
+            let rawVoltage = -1 * instantaneousVel * interaction * numLoops * magnetPolarity * 0.3;
+
+            if (isNaN(rawVoltage)) rawVoltage = 0;
+
+            voltage = voltage * 0.85 + rawVoltage * 0.15;
+            current = voltage / RESISTANCE;
+
+            lastX = magnetX;
+            electronOffset += current * 15; 
+
+            updateUI();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        function updateUI() {
+            let vDisplay = Math.abs(voltage) < 0.01 ? 0 : voltage;
+            let cDisplay = Math.abs(current) < 0.001 ? 0 : current;
+
+            if (isNaN(vDisplay)) vDisplay = 0;
+            if (isNaN(cDisplay)) cDisplay = 0;
+
+            dispVolt.textContent = vDisplay.toFixed(2) + " V";
+            dispCurr.textContent = cDisplay.toFixed(2) + " A";
+
+            dispVolt.style.color = vDisplay >= 0 ? "#4caf50" : "#ff5252";
+            dispCurr.style.color = cDisplay >= 0 ? "#4caf50" : "#ff5252";
+
+            // ADJUSTED: Increased Max Range for bars
+            // Previously 1.0V, now 3.0V to make bar filling harder
+            let maxV = 3.0; 
+            let vPercent = Math.min(Math.abs(vDisplay) / maxV * 100, 100);
+            barVolt.style.width = vPercent + "%";
+            
+            // Previously 0.1A, now 0.3A
+            let maxC = 0.3; 
+            let cPercent = Math.min(Math.abs(cDisplay) / maxC * 100, 100);
+            barCurr.style.width = cPercent + "%";
+        }
+
+        // --- Drawing ---
+        function draw() {
+            if (width === 0 || height === 0) return;
+            
+            ctx.clearRect(0, 0, width, height);
+            drawCircuitBack();
+            drawCoil(false); 
+            drawMagnet();
+            drawCoil(true); 
+            drawCircuitFront();
+        }
+
+        function drawMagnet() {
+            ctx.save();
+            ctx.translate(magnetX, magnetY);
+
+            if (document.getElementById('show-field').checked) drawFieldLines();
+
+            const w = 120, h = 40;
+            ctx.fillStyle = magnetPolarity === 1 ? "#d32f2f" : "#1976d2";
+            ctx.fillRect(-w/2, -h/2, w/2, h);
+            ctx.fillStyle = "white";
+            ctx.font = "bold 18px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(magnetPolarity === 1 ? "N" : "S", -w/4, 0);
+
+            ctx.fillStyle = magnetPolarity === 1 ? "#1976d2" : "#d32f2f";
+            ctx.fillRect(0, -h/2, w/2, h);
+            ctx.fillStyle = "white";
+            ctx.fillText(magnetPolarity === 1 ? "S" : "N", w/4, 0);
+            
+            ctx.strokeStyle = "#222";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-w/2, -h/2, w, h);
+            ctx.restore();
+        }
+
+        function drawFieldLines() {
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+            ctx.lineWidth = 2;
+            
+            const w = 120; // Magnet width
+            const halfW = w / 2;
+            
+            // Draw 4 loops on top and 4 on bottom
+            for (let i = 1; i <= 4; i++) {
+                const height = 40 + i * 35;
+                const spread = i * 20;
+
+                // Top Loops
+                ctx.beginPath();
+                ctx.moveTo(-halfW, 0);
+                // Control points stretch out and up to create a loop
+                ctx.bezierCurveTo(-halfW - spread, -height, halfW + spread, -height, halfW, 0);
+                ctx.stroke();
+
+                // Bottom Loops
+                ctx.beginPath();
+                ctx.moveTo(-halfW, 0);
+                ctx.bezierCurveTo(-halfW - spread, height, halfW + spread, height, halfW, 0);
+                ctx.stroke();
+            }
+        }
+
+        function drawCoil(front) {
+            ctx.lineCap = "round";
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = "#d88";
+            
+            let gap = 25;
+            let startX = coilX - (numLoops * gap) / 2;
+
+            if (Math.abs(voltage) > 0.05) {
+                ctx.shadowBlur = Math.min(Math.abs(voltage) * 50, 20);
+                ctx.shadowColor = "#ffca28";
+            } else {
+                ctx.shadowBlur = 0;
+            }
+
+            for (let i = 0; i < numLoops; i++) {
+                let cx = startX + i * gap + 12;
+                ctx.beginPath();
+                if (front) {
+                    ctx.strokeStyle = "#cd7f32";
+                    ctx.ellipse(cx, coilY, 25, 60, 0, 0, Math.PI);
+                } else {
+                    ctx.strokeStyle = "#8d5524";
+                    ctx.ellipse(cx, coilY, 25, 60, 0, Math.PI, 2 * Math.PI);
+                }
+                ctx.stroke();
+            }
+            ctx.shadowBlur = 0; 
+        }
+
+        function drawCircuitBack() {
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = "#555";
+            const wireY = coilY + 120;
+            const meterX = coilX - 180;
+            const bulbX = coilX + 180;
+
+            ctx.beginPath();
+            ctx.moveTo(coilX - 40, coilY + 55);
+            ctx.lineTo(coilX - 40, wireY - 40);
+            ctx.lineTo(meterX, wireY - 40);
+            ctx.lineTo(meterX, wireY); 
+            
+            ctx.moveTo(coilX + 40, coilY + 55);
+            ctx.lineTo(coilX + 40, wireY - 40);
+            ctx.lineTo(bulbX, wireY - 40);
+            ctx.lineTo(bulbX, wireY); 
+            
+            ctx.moveTo(meterX, wireY + 60); 
+            ctx.lineTo(meterX, wireY + 100);
+            ctx.lineTo(bulbX, wireY + 100);
+            ctx.lineTo(bulbX, wireY + 60); 
+            ctx.stroke();
+        }
+
+        function drawCircuitFront() {
+            const wireY = coilY + 120;
+            const meterX = coilX - 180;
+            const bulbX = coilX + 180;
+
+            drawMeter(meterX, wireY + 30);
+            drawBulb(bulbX, wireY + 30);
+            drawElectrons(wireY + 100, meterX, bulbX);
+            drawCurrentArrows(wireY + 100, meterX, bulbX);
+        }
+        
+        // Draws Conventional Current Arrows (I)
+        function drawCurrentArrows(y, x1, x2) {
+            if (Math.abs(current) < 0.002) return;
+            
+            ctx.fillStyle = "#00bcd4";
+            ctx.strokeStyle = "#00bcd4";
+            ctx.font = "bold 14px Arial";
+            
+            const mid = (x1 + x2) / 2;
+            const arrowSize = 10;
+            const isLeft = current > 0;
+            
+            ctx.beginPath();
+            ctx.moveTo(mid - arrowSize, y);
+            if (isLeft) {
+                ctx.lineTo(mid + arrowSize, y - arrowSize/2);
+                ctx.lineTo(mid + arrowSize, y + arrowSize/2);
+            } else {
+                ctx.lineTo(mid - arrowSize, y - arrowSize/2);
+                ctx.lineTo(mid - arrowSize, y + arrowSize/2);
+            }
+            ctx.fill();
+            
+            ctx.textAlign = "center";
+            ctx.fillText("I", mid, y - 15);
+        }
+
+        function drawMeter(x, y) {
+            ctx.fillStyle = "#f0f0f0";
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(x, y, 35, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.beginPath();
+            for(let i=-4; i<=4; i++) {
+                let a = i * 0.2;
+                let r1 = 25, r2 = 32;
+                if (i===0) r1 = 20;
+                ctx.moveTo(x + Math.sin(a)*r1, y - Math.cos(a)*r1);
+                ctx.lineTo(x + Math.sin(a)*r2, y - Math.cos(a)*r2);
+            }
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = "#555";
+            ctx.stroke();
+
+            // ADJUSTED: Reduced needle angle sensitivity
+            // Multiplier reduced from 1.5 to 0.4
+            let angle = Math.max(Math.min(voltage * 0.4, 1.2), -1.2); 
+            if (isNaN(angle)) angle = 0;
+
+            ctx.strokeStyle = "#d32f2f";
+            ctx.lineWidth = 3;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(x, y + 5);
+            ctx.lineTo(x + Math.sin(angle) * 28, y - Math.cos(angle) * 28);
+            ctx.stroke();
+
+            ctx.fillStyle = "#333";
+            ctx.beginPath();
+            ctx.arc(x, y + 5, 3, 0, Math.PI*2);
+            ctx.fill();
+            
+            ctx.fillStyle = "#333";
+            ctx.font = "10px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("GALV", x, y + 15);
+        }
+
+        function drawBulb(x, y) {
+            // Visual sensitivity for bulb brightness maintained
+            let intensity = Math.min(Math.abs(voltage) * 250, 255); 
+            if (isNaN(intensity)) intensity = 0;
+            
+            if (intensity > 20) {
+                ctx.shadowBlur = intensity / 4;
+                ctx.shadowColor = "#ffeb3b";
+            }
+
+            ctx.fillStyle = `rgb(255, ${255-intensity*0.2}, ${150-intensity*0.5})`;
+            if (intensity < 20) ctx.fillStyle = "#444"; 
+            
+            ctx.strokeStyle = "#888";
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 20, 0, Math.PI*2);
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = `rgba(255, 255, 255, ${intensity/255 + 0.2})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x-10, y+5);
+            ctx.lineTo(x-5, y-5);
+            ctx.lineTo(x+5, y-5);
+            ctx.lineTo(x+10, y+5);
+            ctx.stroke();
+        }
+
+        function drawElectrons(y, x1, x2) {
+            if (Math.abs(current) < 0.0005 || isNaN(current)) return;
+            
+            ctx.fillStyle = "#ffca28";
+            let spacing = 25;
+            let dist = x2 - x1;
+            
+            for (let i = 0; i < dist/spacing; i++) {
+                let base = i * spacing;
+                let pos = (base + electronOffset) % dist;
+                if (pos < 0) pos += dist;
+                
+                ctx.beginPath();
+                ctx.arc(x1 + pos, y, 3, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            ctx.fillStyle = "#ffca28";
+            ctx.font = "10px Arial";
+            ctx.textAlign = "right";
+            ctx.fillText("e-", x1 - 5, y + 3);
+        }
+
+        loop();
+
+    </script>
+</body>
+</html>
