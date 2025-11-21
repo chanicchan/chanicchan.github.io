@@ -20,29 +20,60 @@
             flex-direction: column;
             align-items: center;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
+            height: 100vh;
+            overflow: hidden; /* Prevent body scroll, handle in panels */
         }
-        h1 { margin-top: 0; }
+        h1 { 
+            margin-top: 0; 
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+            text-align: center;
+            flex-shrink: 0;
+        }
         .main-layout {
             display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            justify-content: center;
-            max-width: 1000px;
+            flex-direction: column;
+            gap: 10px;
             width: 100%;
+            max-width: 1000px;
+            height: 100%;
+            overflow-y: auto; /* Allow scrolling if content overflows vertically */
         }
+
+        /* Desktop Layout Override */
+        @media (min-width: 800px) {
+            .main-layout {
+                flex-direction: row;
+                align-items: flex-start;
+                overflow-y: visible;
+            }
+            body {
+                overflow-y: auto;
+            }
+        }
+
         .canvas-container {
             position: relative;
             background: white;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             overflow: hidden;
+            width: 100%;
+            flex-shrink: 0;
+            /* Touch action none prevents scrolling page when dragging graph */
+            touch-action: none; 
         }
+        
         canvas {
             display: block;
             background-color: #fff;
-            cursor: crosshair;
+            cursor: grab;
         }
+        canvas:active {
+            cursor: grabbing;
+        }
+
         .coordinate-tooltip {
             position: absolute;
             background: rgba(0, 0, 0, 0.8);
@@ -52,48 +83,53 @@
             pointer-events: none;
             font-size: 0.8rem;
             display: none;
+            z-index: 10;
         }
+        
         .controls-panel {
             flex: 1;
-            min-width: 300px;
             background: white;
-            padding: 20px;
+            padding: 15px;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow-y: auto; /* Scroll controls if they don't fit */
         }
+
         .equation-display {
             font-family: 'Times New Roman', serif;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             text-align: center;
-            margin-bottom: 20px;
-            padding: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
             background: #e8eaf6;
             border-radius: 8px;
             font-style: italic;
         }
         .control-group {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
         label {
             display: flex;
             justify-content: space-between;
             font-weight: bold;
             margin-bottom: 5px;
+            font-size: 0.9rem;
         }
         input[type="range"] {
             width: 100%;
             cursor: pointer;
+            padding: 5px 0; /* Increase touch target */
         }
         .stats-panel {
-            margin-top: 20px;
+            margin-top: 15px;
             border-top: 1px solid #eee;
-            padding-top: 15px;
+            padding-top: 10px;
         }
         .stat-item {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 0.95rem;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
         }
         .color-box {
             display: inline-block;
@@ -103,13 +139,12 @@
             margin-right: 5px;
         }
         .legend {
-            font-size: 0.85rem;
-            margin-top: 15px;
+            font-size: 0.8rem;
+            margin-top: 10px;
             display: flex;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
         }
-        /* Math formatting */
         sup { font-size: 0.6em; }
     </style>
 </head>
@@ -119,7 +154,7 @@
 
     <div class="main-layout">
         <div class="canvas-container">
-            <canvas id="graphCanvas" width="500" height="500"></canvas>
+            <canvas id="graphCanvas"></canvas>
             <div id="tooltip" class="coordinate-tooltip"></div>
         </div>
 
@@ -142,7 +177,7 @@
             </div>
             <div class="control-group">
                 <label>Zoom Level: <span id="val-zoom">25px</span></label>
-                <input type="range" id="input-zoom" min="10" max="50" step="1" value="25">
+                <input type="range" id="input-zoom" min="10" max="100" step="1" value="25">
             </div>
 
             <div class="stats-panel">
@@ -164,7 +199,7 @@
             <div class="legend">
                 <span><span class="color-box" style="background:var(--vertex-color)"></span>Vertex</span>
                 <span><span class="color-box" style="background:var(--root-color)"></span>Roots</span>
-                <span><span class="color-box" style="background:var(--intercept-color)"></span>Y-Intercept</span>
+                <span><span class="color-box" style="background:var(--intercept-color)"></span>Y-Int</span>
             </div>
         </div>
     </div>
@@ -172,6 +207,7 @@
     <script>
         const canvas = document.getElementById('graphCanvas');
         const ctx = canvas.getContext('2d');
+        const container = document.querySelector('.canvas-container');
         const tooltip = document.getElementById('tooltip');
 
         // UI Elements
@@ -186,67 +222,92 @@
         const statVertexForm = document.getElementById('stat-vertex-form');
 
         // State
-        let a = 1;
-        let b = 0;
-        let c = 0;
-        let scale = 25; // pixels per unit
-        let offsetX = canvas.width / 2;
-        let offsetY = canvas.height / 2;
+        let a = 1, b = 0, c = 0;
+        let scale = 25; 
+        let offsetX = 0; // Center X relative to canvas
+        let offsetY = 0; // Center Y relative to canvas
+        
+        // Panning State
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
 
+        // --- Initialization & Resizing ---
+        function resize() {
+            const width = container.clientWidth;
+            let height;
+
+            // Responsive height logic
+            if (window.innerWidth < 800) {
+                // Mobile: Use about 45% of viewport height for graph
+                height = window.innerHeight * 0.45;
+            } else {
+                // Desktop: Fixed reasonable height
+                height = 500;
+            }
+
+            // If first run, center the origin
+            if (canvas.width === 0 || offsetX === 0) {
+                offsetX = width / 2;
+                offsetY = height / 2;
+            } else {
+                // Adjust offset relative to resize difference (optional, simply keeping old offset is often fine)
+                // but keeping it centered visually is better:
+                const dx = (width - canvas.width) / 2;
+                const dy = (height - canvas.height) / 2;
+                offsetX += dx;
+                offsetY += dy;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            draw();
+        }
+        
+        // Call resize initially and on window change
+        window.addEventListener('resize', resize);
+        // Call once quickly to set initial size
+        resize();
+
+        // --- Update Logic ---
         function update() {
-            // 1. Get Values
             a = parseFloat(inputA.value);
             b = parseFloat(inputB.value);
             c = parseFloat(inputC.value);
             scale = parseFloat(inputZoom.value);
 
-            // Update Labels
             document.getElementById('val-a').textContent = a.toFixed(1);
             document.getElementById('val-b').textContent = b.toFixed(1);
             document.getElementById('val-c').textContent = c.toFixed(1);
             document.getElementById('val-zoom').textContent = scale + "px";
 
-            // 2. Update Equation Text
             updateEquationDisplay();
-
-            // 3. Calculate Properties
             calculateProperties();
-
-            // 4. Draw
             draw();
         }
 
         function updateEquationDisplay() {
             let text = "y = ";
-            
-            // A term
             if (a !== 0) {
                 if (a === -1) text += "-";
                 else if (a !== 1) text += a;
                 text += "x<sup>2</sup>";
             }
-
-            // B term
             if (b !== 0) {
                 if (b > 0 && a !== 0) text += " + ";
                 else if (b < 0) text += " - ";
                 text += Math.abs(b) + "x";
             }
-
-            // C term
             if (c !== 0) {
                 if (c > 0 && (a!==0 || b!==0)) text += " + ";
                 else if (c < 0) text += " - ";
                 text += Math.abs(c);
             }
-
             if (a===0 && b===0 && c===0) text += "0";
-
             displayEq.innerHTML = text;
         }
 
         function calculateProperties() {
-            // Discriminant: b^2 - 4ac
             const disc = (b * b) - (4 * a * c);
             statDisc.textContent = disc.toFixed(2);
             
@@ -260,90 +321,94 @@
             else if (disc === 0) statNature.textContent = "1 Real Root";
             else statNature.textContent = "No Real Roots";
 
-            // Vertex Form: y = a(x-h)^2 + k
-            // h = -b / 2a
-            // k = c - b^2 / 4a
             const h = -b / (2 * a);
             const k = c - (b * b) / (4 * a);
 
             let vText = "y = ";
             if (a === -1) vText += "-";
             else if (a !== 1) vText += a;
-            
             vText += "(x";
             if (h > 0) vText += " - " + h.toFixed(2);
             else if (h < 0) vText += " + " + Math.abs(h).toFixed(2);
             vText += ")²";
-
             if (k > 0) vText += " + " + k.toFixed(2);
             else if (k < 0) vText += " - " + Math.abs(k).toFixed(2);
-
             statVertexForm.innerText = vText;
         }
 
-        // Coordinate Conversions
+        // --- Coordinate Systems ---
         function toCanvasX(mathX) { return offsetX + (mathX * scale); }
-        function toCanvasY(mathY) { return offsetY - (mathY * scale); } // Y is flipped
+        function toCanvasY(mathY) { return offsetY - (mathY * scale); } 
         function toMathX(canvX) { return (canvX - offsetX) / scale; }
         function toMathY(canvY) { return (offsetY - canvY) / scale; }
 
-        function f(x) {
-            return (a * x * x) + (b * x) + c;
-        }
+        function f(x) { return (a * x * x) + (b * x) + c; }
 
+        // --- Drawing ---
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // --- Draw Grid ---
+            // Grid
             ctx.lineWidth = 1;
             ctx.strokeStyle = "#e0e0e0";
             ctx.beginPath();
             
-            // Vertical Grid lines
-            let startX = Math.floor(-offsetX / scale);
-            let endX = Math.ceil((canvas.width - offsetX) / scale);
+            // Calculate visible range
+            const leftMath = toMathX(0);
+            const rightMath = toMathX(canvas.width);
+            const bottomMath = toMathY(canvas.height);
+            const topMath = toMathY(0);
+
+            // Vertical Lines
+            const startX = Math.floor(leftMath);
+            const endX = Math.ceil(rightMath);
             for (let x = startX; x <= endX; x++) {
-                ctx.moveTo(toCanvasX(x), 0);
-                ctx.lineTo(toCanvasX(x), canvas.height);
+                const cx = Math.round(toCanvasX(x)) + 0.5; // Sharp lines
+                ctx.moveTo(cx, 0);
+                ctx.lineTo(cx, canvas.height);
             }
 
-            // Horizontal Grid lines
-            let startY = Math.floor(-(canvas.height - offsetY) / scale);
-            let endY = Math.ceil(offsetY / scale);
+            // Horizontal Lines
+            const startY = Math.floor(bottomMath);
+            const endY = Math.ceil(topMath);
             for (let y = startY; y <= endY; y++) {
-                ctx.moveTo(0, toCanvasY(y));
-                ctx.lineTo(canvas.width, toCanvasY(y));
+                const cy = Math.round(toCanvasY(y)) + 0.5;
+                ctx.moveTo(0, cy);
+                ctx.lineTo(canvas.width, cy);
             }
             ctx.stroke();
 
-            // --- Draw Axes ---
+            // Axes
             ctx.lineWidth = 2;
             ctx.strokeStyle = "#666";
             ctx.beginPath();
             // X Axis
-            ctx.moveTo(0, offsetY);
-            ctx.lineTo(canvas.width, offsetY);
+            const cy0 = toCanvasY(0);
+            if (cy0 >= 0 && cy0 <= canvas.height) {
+                ctx.moveTo(0, cy0);
+                ctx.lineTo(canvas.width, cy0);
+            }
             // Y Axis
-            ctx.moveTo(offsetX, 0);
-            ctx.lineTo(offsetX, canvas.height);
+            const cx0 = toCanvasX(0);
+            if (cx0 >= 0 && cx0 <= canvas.width) {
+                ctx.moveTo(cx0, 0);
+                ctx.lineTo(cx0, canvas.height);
+            }
             ctx.stroke();
 
-            // --- Draw Parabola ---
+            // Parabola
             ctx.lineWidth = 3;
             ctx.strokeStyle = "#3f51b5";
             ctx.beginPath();
             
-            // Iterate pixel by pixel for smoothness
-            let startPixelX = 0;
             let started = false;
-            for (let px = 0; px < canvas.width; px++) {
+            for (let px = 0; px < canvas.width; px += 1) {
                 let mx = toMathX(px);
                 let my = f(mx);
                 let py = toCanvasY(my);
 
-                // Avoid drawing insane values off-screen that confuse the renderer
-                if (py < -1000 || py > canvas.height + 1000) {
-                    started = false; // reset path if we go way off screen
+                if (py < -2000 || py > canvas.height + 2000) {
+                    started = false; 
                     continue;
                 }
 
@@ -356,14 +421,14 @@
             }
             ctx.stroke();
 
-            // --- Key Features ---
+            // Features
             if (a !== 0) {
-                // 1. Vertex
+                // Vertex
                 const h = -b / (2 * a);
                 const k = f(h);
                 drawPoint(h, k, '#d50000', 5);
 
-                // 2. Roots
+                // Roots
                 const disc = (b * b) - (4 * a * c);
                 if (disc >= 0) {
                     const r1 = (-b + Math.sqrt(disc)) / (2 * a);
@@ -372,56 +437,89 @@
                     drawPoint(r2, 0, '#2962ff', 4);
                 }
             }
-
-            // 3. Y-Intercept (x=0)
             drawPoint(0, c, '#00c853', 4);
         }
 
         function drawPoint(x, y, color, size) {
             const cx = toCanvasX(x);
             const cy = toCanvasY(y);
-            
-            // Only draw if roughly on screen
             if (cx < -20 || cx > canvas.width + 20 || cy < -20 || cy > canvas.height + 20) return;
-
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(cx, cy, size, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // Mouse Interaction
-        canvas.addEventListener('mousemove', (e) => {
+        // --- Interaction (Panning & Hover) ---
+        
+        function getPointerPos(e) {
             const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left;
-            const my = e.clientY - rect.top;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
 
-            // Calculate closest point on curve to mouse X
-            const mathX = toMathX(mx);
-            const mathY = f(mathX);
-            const curveY = toCanvasY(mathY);
+        function handleStart(e) {
+            isDragging = true;
+            const pos = getPointerPos(e);
+            lastMouseX = pos.x;
+            lastMouseY = pos.y;
+            // Hide tooltip while dragging
+            tooltip.style.display = 'none';
+        }
 
-            // If mouse is relatively close to the curve
-            if (Math.abs(my - curveY) < 50) {
-                // Draw tracking dot
-                draw(); // Redraw scene to clear previous dots
-                drawPoint(mathX, mathY, '#333', 3);
-                
-                // Show tooltip
-                tooltip.style.display = 'block';
-                tooltip.style.left = (mx + 15) + 'px';
-                tooltip.style.top = (curveY - 15) + 'px';
-                tooltip.textContent = `(${mathX.toFixed(2)}, ${mathY.toFixed(2)})`;
+        function handleMove(e) {
+            const pos = getPointerPos(e);
+            
+            if (isDragging) {
+                e.preventDefault(); // Stop page scrolling on touch
+                const dx = pos.x - lastMouseX;
+                const dy = pos.y - lastMouseY;
+                offsetX += dx;
+                offsetY += dy;
+                lastMouseX = pos.x;
+                lastMouseY = pos.y;
+                draw();
             } else {
-                draw(); // clear dot
-                tooltip.style.display = 'none';
-            }
-        });
+                // Hover Effect (Only on mouse, not touch usually)
+                if (!e.touches) {
+                    const mathX = toMathX(pos.x);
+                    const mathY = f(mathX);
+                    const curveY = toCanvasY(mathY);
 
+                    if (Math.abs(pos.y - curveY) < 50) {
+                        draw(); 
+                        drawPoint(mathX, mathY, '#333', 3);
+                        tooltip.style.display = 'block';
+                        tooltip.style.left = (pos.x + 15) + 'px';
+                        tooltip.style.top = (curveY - 15) + 'px';
+                        tooltip.textContent = `(${mathX.toFixed(2)}, ${mathY.toFixed(2)})`;
+                    } else {
+                        tooltip.style.display = 'none';
+                        draw();
+                    }
+                }
+            }
+        }
+
+        function handleEnd() {
+            isDragging = false;
+        }
+
+        // Mouse Events
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        canvas.addEventListener('mouseup', handleEnd);
         canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
             tooltip.style.display = 'none';
             draw();
         });
+
+        // Touch Events
+        canvas.addEventListener('touchstart', handleStart, {passive: false});
+        canvas.addEventListener('touchmove', handleMove, {passive: false});
+        canvas.addEventListener('touchend', handleEnd);
 
         // Listeners
         inputA.addEventListener('input', update);
@@ -430,7 +528,11 @@
         inputZoom.addEventListener('input', update);
 
         // Init
-        update();
+        // Defer initial update slightly to ensure layout is settled
+        setTimeout(() => {
+            resize();
+            update();
+        }, 50);
 
     </script>
 </body>
