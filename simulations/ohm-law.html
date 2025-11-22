@@ -70,6 +70,30 @@
             max-width: 500px;
             width: 90%;
             text-align: center;
+            position: relative;
+        }
+
+        /* Override Scanner Library Buttons */
+        #reader button {
+            background-color: #2563eb; /* Blue-600 */
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        #reader button:hover {
+            background-color: #1d4ed8; /* Blue-700 */
+        }
+        /* Scanner Select dropdown */
+        #reader select {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -206,9 +230,29 @@
     <div id="scanModal" class="modal-overlay">
         <div class="modal-content">
             <h3 class="text-lg font-bold mb-2">Scan Student Data</h3>
-            <div id="reader" width="400px" class="mb-4"></div>
-            <div id="scanResult" class="text-sm text-green-600 font-bold mb-2"></div>
-            <button onclick="closeScanModal()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">Stop Scanning</button>
+            
+            <!-- Container for Scanner -->
+            <div id="reader-container">
+                <div id="reader" width="400px" class="mb-4"></div>
+            </div>
+
+            <!-- Success Message Container (Hidden by default) -->
+            <div id="scan-success-container" class="hidden flex-col items-center py-6">
+                <div class="text-green-600 text-5xl mb-2">✓</div>
+                <h4 class="text-xl font-bold text-slate-700 mb-2">Scan Complete</h4>
+                <div id="scanResult" class="text-sm text-gray-600 font-bold mb-6"></div>
+                
+                <div class="flex gap-3 w-full">
+                    <button onclick="startScanner()" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded">
+                        Scan Another
+                    </button>
+                    <button onclick="closeScanModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
+                        Done
+                    </button>
+                </div>
+            </div>
+
+            <button id="btnCloseScannerMain" onclick="closeScanModal()" class="mt-2 text-sm text-gray-500 hover:text-gray-700 underline">Cancel / Close</button>
         </div>
     </div>
 
@@ -345,14 +389,13 @@
             document.getElementById('qrModal').style.display = 'flex';
             document.getElementById('qrcode').innerHTML = '';
             
-            // COMPRESS DATA: Convert [{x:1,y:2}...] to [[1,2]...]
-            // This reduces QR density significantly, making scanning much easier.
+            // COMPRESS DATA for better scanning
             const simplifiedData = dataPoints.map(p => [p.x, p.y]);
             const dataStr = JSON.stringify(simplifiedData);
             
             new QRCode(document.getElementById("qrcode"), {
                 text: dataStr,
-                width: 256, // Larger size for clarity
+                width: 256, 
                 height: 256,
                 colorDark : "#000000",
                 colorLight : "#ffffff",
@@ -366,61 +409,95 @@
 
         function showScanModal() {
             document.getElementById('scanModal').style.display = 'flex';
-            document.getElementById('scanResult').innerText = "";
-            
-            // Init Scanner with better mobile configs
+            startScanner();
+        }
+
+        function startScanner() {
+            // UI Reset
+            document.getElementById('reader-container').style.display = 'block';
+            document.getElementById('scan-success-container').classList.add('hidden');
+            document.getElementById('scan-success-container').classList.remove('flex');
+            document.getElementById('btnCloseScannerMain').style.display = 'inline-block';
+
+            // Init Scanner
+            // If already running, clear it first
+            if(html5QrcodeScanner) {
+                html5QrcodeScanner.clear().then(() => {
+                    initHtml5Scanner();
+                });
+            } else {
+                initHtml5Scanner();
+            }
+        }
+
+        function initHtml5Scanner() {
             html5QrcodeScanner = new Html5QrcodeScanner(
                 "reader", { 
                     fps: 10, 
                     qrbox: { width: 250, height: 250 },
                     aspectRatio: 1.0
                 });
-            
-            // Handle success and ignore intermediate failures to prevent alert spam
             html5QrcodeScanner.render(onScanSuccess, (error) => {
-                // onScanFailure callback: intentionally empty to suppress console noise
+                // ignore errors to prevent console spam
             });
         }
 
         function closeScanModal() {
             if(html5QrcodeScanner) {
-                html5QrcodeScanner.clear();
+                html5QrcodeScanner.clear().catch(err => console.log("Scanner clear error", err));
                 html5QrcodeScanner = null;
             }
             document.getElementById('scanModal').style.display = 'none';
         }
 
         function onScanSuccess(decodedText, decodedResult) {
+            // 1. Stop the scanner immediately to prevent duplicate reads
+            if(html5QrcodeScanner) {
+                html5QrcodeScanner.clear();
+                html5QrcodeScanner = null;
+            }
+
+            // 2. Process Data
             try {
                 const newData = JSON.parse(decodedText);
+                let addedCount = 0;
                 
                 if(Array.isArray(newData)) {
-                    let addedCount = 0;
                     newData.forEach(pt => {
-                        // Handle Compressed Array [x,y]
                         if(Array.isArray(pt) && pt.length === 2) {
                             addDataInternal(pt[0], pt[1]);
                             addedCount++;
                         } 
-                        // Handle Legacy Object {x,y}
                         else if(pt.hasOwnProperty('x') && pt.hasOwnProperty('y')) {
                             addDataInternal(pt.x, pt.y);
                             addedCount++;
                         }
                     });
                     
+                    // 3. Update UI to Success State
+                    document.getElementById('reader-container').style.display = 'none';
+                    document.getElementById('btnCloseScannerMain').style.display = 'none';
+                    
+                    const successContainer = document.getElementById('scan-success-container');
+                    successContainer.classList.remove('hidden');
+                    successContainer.classList.add('flex');
+                    
                     if(addedCount > 0) {
-                        document.getElementById('scanResult').innerText = `Success! Added ${addedCount} points.`;
-                        // Beep or visual feedback
+                        document.getElementById('scanResult').innerText = `Success! Added ${addedCount} points from student.`;
+                        document.getElementById('scanResult').className = "text-sm text-green-600 font-bold mb-6";
                     } else {
-                        document.getElementById('scanResult').innerText = "QR valid but contained no points.";
+                        document.getElementById('scanResult').innerText = "QR scanned, but no points were added.";
+                        document.getElementById('scanResult').className = "text-sm text-orange-600 font-bold mb-6";
                     }
+
                 } else {
-                    document.getElementById('scanResult').innerText = "Invalid data format.";
+                    alert("Invalid data format in QR code.");
+                    startScanner(); // Restart if invalid
                 }
             } catch(e) {
                 console.error(e);
-                document.getElementById('scanResult').innerText = "Error parsing QR data.";
+                alert("Error parsing QR data.");
+                startScanner(); // Restart if error
             }
         }
 
