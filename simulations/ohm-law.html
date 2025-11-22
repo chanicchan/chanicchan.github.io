@@ -345,13 +345,15 @@
             document.getElementById('qrModal').style.display = 'flex';
             document.getElementById('qrcode').innerHTML = '';
             
-            // Create JSON string
-            const dataStr = JSON.stringify(dataPoints);
+            // COMPRESS DATA: Convert [{x:1,y:2}...] to [[1,2]...]
+            // This reduces QR density significantly, making scanning much easier.
+            const simplifiedData = dataPoints.map(p => [p.x, p.y]);
+            const dataStr = JSON.stringify(simplifiedData);
             
             new QRCode(document.getElementById("qrcode"), {
                 text: dataStr,
-                width: 200,
-                height: 200,
+                width: 256, // Larger size for clarity
+                height: 256,
                 colorDark : "#000000",
                 colorLight : "#ffffff",
                 correctLevel : QRCode.CorrectLevel.M
@@ -366,10 +368,18 @@
             document.getElementById('scanModal').style.display = 'flex';
             document.getElementById('scanResult').innerText = "";
             
-            // Init Scanner
+            // Init Scanner with better mobile configs
             html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader", { fps: 10, qrbox: 250 });
-            html5QrcodeScanner.render(onScanSuccess);
+                "reader", { 
+                    fps: 10, 
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                });
+            
+            // Handle success and ignore intermediate failures to prevent alert spam
+            html5QrcodeScanner.render(onScanSuccess, (error) => {
+                // onScanFailure callback: intentionally empty to suppress console noise
+            });
         }
 
         function closeScanModal() {
@@ -381,14 +391,19 @@
         }
 
         function onScanSuccess(decodedText, decodedResult) {
-            // Handle the scanned code
             try {
                 const newData = JSON.parse(decodedText);
                 
                 if(Array.isArray(newData)) {
                     let addedCount = 0;
                     newData.forEach(pt => {
-                        if(pt.hasOwnProperty('x') && pt.hasOwnProperty('y')) {
+                        // Handle Compressed Array [x,y]
+                        if(Array.isArray(pt) && pt.length === 2) {
+                            addDataInternal(pt[0], pt[1]);
+                            addedCount++;
+                        } 
+                        // Handle Legacy Object {x,y}
+                        else if(pt.hasOwnProperty('x') && pt.hasOwnProperty('y')) {
                             addDataInternal(pt.x, pt.y);
                             addedCount++;
                         }
@@ -396,8 +411,7 @@
                     
                     if(addedCount > 0) {
                         document.getElementById('scanResult').innerText = `Success! Added ${addedCount} points.`;
-                        // Optional: Auto close after success?
-                        // closeScanModal(); 
+                        // Beep or visual feedback
                     } else {
                         document.getElementById('scanResult').innerText = "QR valid but contained no points.";
                     }
