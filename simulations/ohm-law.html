@@ -6,6 +6,10 @@
     <title>AI Resistance Finder: Linear Regression</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- QR Code Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -39,7 +43,6 @@
             font-size: 0.8rem;
             color: #64748b;
         }
-        /* Feedback pills */
         .feedback-pill {
             font-size: 0.75rem;
             padding: 2px 8px;
@@ -47,9 +50,27 @@
             font-weight: bold;
             display: inline-block;
         }
-        .fb-high { background: #fee2e2; color: #991b1b; } /* Red */
-        .fb-low { background: #dbeafe; color: #1e40af; } /* Blue */
-        .fb-good { background: #d1fae5; color: #065f46; } /* Green */
+        .fb-high { background: #fee2e2; color: #991b1b; } 
+        .fb-low { background: #dbeafe; color: #1e40af; } 
+        .fb-good { background: #d1fae5; color: #065f46; } 
+        
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 50;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden">
@@ -74,9 +95,20 @@
                     <input type="number" id="inputI" class="w-full p-2 border rounded" placeholder="e.g. 0.4">
                 </div>
             </div>
-            <button onclick="addDataPoint()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+            <button onclick="addDataPoint()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition mb-2">
                 + Add Data Point
             </button>
+            
+            <!-- QR Sharing Buttons -->
+            <div class="flex gap-2 mb-2">
+                <button onclick="showQRModal()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-2 px-2 rounded transition flex items-center justify-center gap-1">
+                    📱 Share Data (QR)
+                </button>
+                <button onclick="showScanModal()" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold py-2 px-2 rounded transition flex items-center justify-center gap-1">
+                    📷 Scan Data
+                </button>
+            </div>
+
             <div class="mt-2 max-h-32 overflow-y-auto">
                 <table class="w-full text-sm text-left">
                     <thead>
@@ -159,6 +191,27 @@
         </div>
     </div>
 
+    <!-- MODALS -->
+    <!-- QR Display Modal -->
+    <div id="qrModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-4">Share Data with Teacher</h3>
+            <div id="qrcode" class="flex justify-center mb-4"></div>
+            <p class="text-sm text-gray-500 mb-4">Scan this code to add your data points to the teacher's device.</p>
+            <button onclick="closeQRModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Close</button>
+        </div>
+    </div>
+
+    <!-- Scanner Modal -->
+    <div id="scanModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-2">Scan Student Data</h3>
+            <div id="reader" width="400px" class="mb-4"></div>
+            <div id="scanResult" class="text-sm text-green-600 font-bold mb-2"></div>
+            <button onclick="closeScanModal()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">Stop Scanning</button>
+        </div>
+    </div>
+
     <script>
         // --- State ---
         let dataPoints = [];
@@ -169,6 +222,7 @@
         let isAutoTraining = false;
         let autoTrainInterval;
         let chart;
+        let html5QrcodeScanner = null;
 
         // --- Initialization ---
         window.onload = function() {
@@ -192,12 +246,12 @@
                         {
                             label: 'Experimental Data (V, I)',
                             data: [],
-                            borderColor: '#2563eb', // Blue color for the cross lines
-                            backgroundColor: '#2563eb', // Fill (though mostly lines for cross)
-                            pointStyle: 'crossRot', // "X" shape
+                            borderColor: '#2563eb',
+                            backgroundColor: '#2563eb',
+                            pointStyle: 'crossRot', 
                             pointRadius: 6,
                             pointHoverRadius: 8,
-                            borderWidth: 2 // Make the X thicker
+                            borderWidth: 2
                         },
                         {
                             label: 'AI Best Fit Line',
@@ -214,7 +268,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    animation: { duration: 0 }, // Disable animation for instant updates
+                    animation: { duration: 0 },
                     scales: {
                         x: {
                             type: 'linear',
@@ -254,7 +308,6 @@
 
             addDataInternal(v, i);
             
-            // Clear inputs
             document.getElementById('inputV').value = '';
             document.getElementById('inputI').value = '';
             document.getElementById('inputV').focus();
@@ -263,7 +316,6 @@
         function addDataInternal(v, i) {
             dataPoints.push({ x: v, y: i });
             
-            // Update Table
             const table = document.getElementById('dataTable');
             const row = table.insertRow();
             row.innerHTML = `
@@ -277,12 +329,85 @@
         }
 
         function removeData(btn, v, i) {
-            // Remove from array
             dataPoints = dataPoints.filter(p => p.x !== v || p.y !== i);
-            // Remove row
             const row = btn.parentNode.parentNode;
             row.parentNode.removeChild(row);
             updateChartData();
+        }
+
+        // --- QR Sharing & Scanning ---
+
+        function showQRModal() {
+            if(dataPoints.length === 0) {
+                alert("No data to share! Add points first.");
+                return;
+            }
+            document.getElementById('qrModal').style.display = 'flex';
+            document.getElementById('qrcode').innerHTML = '';
+            
+            // Create JSON string
+            const dataStr = JSON.stringify(dataPoints);
+            
+            new QRCode(document.getElementById("qrcode"), {
+                text: dataStr,
+                width: 200,
+                height: 200,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.M
+            });
+        }
+
+        function closeQRModal() {
+            document.getElementById('qrModal').style.display = 'none';
+        }
+
+        function showScanModal() {
+            document.getElementById('scanModal').style.display = 'flex';
+            document.getElementById('scanResult').innerText = "";
+            
+            // Init Scanner
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", { fps: 10, qrbox: 250 });
+            html5QrcodeScanner.render(onScanSuccess);
+        }
+
+        function closeScanModal() {
+            if(html5QrcodeScanner) {
+                html5QrcodeScanner.clear();
+                html5QrcodeScanner = null;
+            }
+            document.getElementById('scanModal').style.display = 'none';
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // Handle the scanned code
+            try {
+                const newData = JSON.parse(decodedText);
+                
+                if(Array.isArray(newData)) {
+                    let addedCount = 0;
+                    newData.forEach(pt => {
+                        if(pt.hasOwnProperty('x') && pt.hasOwnProperty('y')) {
+                            addDataInternal(pt.x, pt.y);
+                            addedCount++;
+                        }
+                    });
+                    
+                    if(addedCount > 0) {
+                        document.getElementById('scanResult').innerText = `Success! Added ${addedCount} points.`;
+                        // Optional: Auto close after success?
+                        // closeScanModal(); 
+                    } else {
+                        document.getElementById('scanResult').innerText = "QR valid but contained no points.";
+                    }
+                } else {
+                    document.getElementById('scanResult').innerText = "Invalid data format.";
+                }
+            } catch(e) {
+                console.error(e);
+                document.getElementById('scanResult').innerText = "Error parsing QR data.";
+            }
         }
 
         // --- AI / Linear Regression Logic ---
@@ -291,13 +416,12 @@
             if (dataPoints.length < 2) {
                 m = 0; c = 0;
             } else {
-                // Randomize starting weights
                 m = Math.random() * 0.5; 
                 c = Math.random() * 0.5;
             }
             
             epoch = 0;
-            updateDisplay(null, null, null); // Reset feedback
+            updateDisplay(null, null, null); 
             drawRegressionLine();
             enableButtons();
             if(isAutoTraining) toggleAutoTrain(); 
@@ -319,17 +443,14 @@
                 let error = guess - y; 
                 totalError += (error * error); 
 
-                // Calculate gradients
                 m_gradient += (2/N) * error * x;
                 c_gradient += (2/N) * error;
             }
 
-            // Apply updates
             m = m - (learning_rate * m_gradient);
             c = c - (learning_rate * c_gradient);
 
             epoch++;
-            // Pass gradients to updateDisplay for feedback
             updateDisplay(totalError, m_gradient, c_gradient);
             drawRegressionLine();
         }
@@ -398,10 +519,7 @@
 
         function updateFeedbackPill(id, gradient) {
             const el = document.getElementById(id);
-            const threshold = 0.001; // Epsilon for "perfect"
-            
-            // Gradient > 0 implies the current value is "Too High" (needs to decrease)
-            // Gradient < 0 implies the current value is "Too Low" (needs to increase)
+            const threshold = 0.001; 
             
             if (gradient > threshold) {
                 el.className = "feedback-pill fb-high";
