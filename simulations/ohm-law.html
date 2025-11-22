@@ -602,7 +602,7 @@
             let R = 0;
             if (m > 0.0001) {
                 R = 1 / m;
-                document.getElementById('dispR').innerText = R.toFixed(2);
+                document.getElementById('dispR').innerText = R.toFixed(3);
             } else {
                 document.getElementById('dispR').innerText = "--";
             }
@@ -610,7 +610,7 @@
 
         function updateFeedbackPill(id, gradient) {
             const el = document.getElementById(id);
-            const threshold = 0.001; 
+            const threshold = 0.005; 
             
             if (gradient > threshold) {
                 el.className = "feedback-pill fb-high";
