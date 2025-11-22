@@ -39,10 +39,17 @@
             font-size: 0.8rem;
             color: #64748b;
         }
-        /* Visualization of residuals */
-        canvas {
-            border-radius: 8px;
+        /* Feedback pills */
+        .feedback-pill {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            display: inline-block;
         }
+        .fb-high { background: #fee2e2; color: #991b1b; } /* Red */
+        .fb-low { background: #dbeafe; color: #1e40af; } /* Blue */
+        .fb-good { background: #d1fae5; color: #065f46; } /* Green */
     </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden">
@@ -101,6 +108,19 @@
                 </div>
             </div>
 
+            <!-- Gradient Analysis Feedback -->
+            <div class="mb-3 p-3 bg-white rounded border border-slate-200 text-sm">
+                <div class="font-bold text-slate-600 mb-1 border-b pb-1">Gradient Analysis</div>
+                <div class="flex justify-between items-center mb-1">
+                    <span>Slope (m):</span>
+                    <span id="mFeedback" class="feedback-pill bg-slate-100 text-slate-500">Waiting...</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span>Intercept (c):</span>
+                    <span id="cFeedback" class="feedback-pill bg-slate-100 text-slate-500">Waiting...</span>
+                </div>
+            </div>
+
             <div class="flex gap-2 mb-2">
                 <button onclick="initModel()" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded text-sm">
                     Reset / Randomize Line
@@ -135,7 +155,7 @@
             <canvas id="regressionChart"></canvas>
         </div>
         <div class="mt-4 text-center max-w-lg text-sm text-slate-500">
-            <p><strong>How it works:</strong> The AI starts with a random guess (red line). When you click "Step", it calculates how far off the line is from the dots (the Error) and nudges the line slightly closer to fit the data. This is called <strong>Gradient Descent</strong>.</p>
+            <p><strong>How it works:</strong> The AI starts with a random guess (red line). When you click "Step", it calculates the gradient to see if the slope is too high or too low, then adjusts the line to minimize the Error.</p>
         </div>
     </div>
 
@@ -172,9 +192,12 @@
                         {
                             label: 'Experimental Data (V, I)',
                             data: [],
-                            backgroundColor: '#2563eb',
+                            borderColor: '#2563eb', // Blue color for the cross lines
+                            backgroundColor: '#2563eb', // Fill (though mostly lines for cross)
+                            pointStyle: 'crossRot', // "X" shape
                             pointRadius: 6,
-                            pointHoverRadius: 8
+                            pointHoverRadius: 8,
+                            borderWidth: 2 // Make the X thicker
                         },
                         {
                             label: 'AI Best Fit Line',
@@ -266,27 +289,24 @@
 
         function initModel() {
             if (dataPoints.length < 2) {
-                // Keep m=0 c=0 visually clean
                 m = 0; c = 0;
             } else {
-                // Randomize starting weights to simulate "guessing"
+                // Randomize starting weights
                 m = Math.random() * 0.5; 
                 c = Math.random() * 0.5;
             }
             
             epoch = 0;
-            updateDisplay();
+            updateDisplay(null, null, null); // Reset feedback
             drawRegressionLine();
             enableButtons();
-            if(isAutoTraining) toggleAutoTrain(); // Stop if running
+            if(isAutoTraining) toggleAutoTrain(); 
         }
 
         function trainStep() {
             if (dataPoints.length === 0) return;
 
-            // Gradient Descent Math
             let learning_rate = 0.01; 
-            
             let m_gradient = 0;
             let c_gradient = 0;
             let N = dataPoints.length;
@@ -295,24 +315,22 @@
             for (let i = 0; i < N; i++) {
                 let x = dataPoints[i].x;
                 let y = dataPoints[i].y;
-
-                // Prediction based on current line
                 let guess = (m * x) + c;
-                
-                let error = guess - y; // How wrong are we?
-                totalError += (error * error); // Squared error for display
+                let error = guess - y; 
+                totalError += (error * error); 
 
-                // Calculate gradients (Direction to move)
+                // Calculate gradients
                 m_gradient += (2/N) * error * x;
                 c_gradient += (2/N) * error;
             }
 
-            // Update Weights (The "Learning" part)
+            // Apply updates
             m = m - (learning_rate * m_gradient);
             c = c - (learning_rate * c_gradient);
 
             epoch++;
-            updateDisplay(totalError);
+            // Pass gradients to updateDisplay for feedback
+            updateDisplay(totalError, m_gradient, c_gradient);
             drawRegressionLine();
         }
 
@@ -326,17 +344,16 @@
                 isAutoTraining = true;
                 document.getElementById('btnAuto').innerText = "⏸ Pause";
                 document.getElementById('btnStep').disabled = true;
-                autoTrainInterval = setInterval(trainStep, 100); // 10 steps per second
+                autoTrainInterval = setInterval(trainStep, 100); 
             }
         }
 
         // --- Visualization & UI Updates ---
 
         function drawRegressionLine() {
-            // Find min and max X to draw line across screen
             let maxX = 0;
             dataPoints.forEach(p => { if(p.x > maxX) maxX = p.x; });
-            maxX = maxX * 1.2; // Add padding
+            maxX = maxX * 1.2; 
             if(maxX < 5) maxX = 5;
 
             const startPoint = { x: 0, y: c };
@@ -351,7 +368,7 @@
             chart.update();
         }
 
-        function updateDisplay(errorVal = null) {
+        function updateDisplay(errorVal, mGrad, cGrad) {
             document.getElementById('dispEpoch').innerText = epoch;
             document.getElementById('dispM').innerText = m.toFixed(4);
             document.getElementById('dispC').innerText = c.toFixed(4);
@@ -360,9 +377,16 @@
                 document.getElementById('dispError').innerText = errorVal.toFixed(4);
             }
 
+            // Feedback Logic
+            if (mGrad !== null && cGrad !== null) {
+                updateFeedbackPill('mFeedback', mGrad);
+                updateFeedbackPill('cFeedback', cGrad);
+            } else {
+                resetFeedbackPill('mFeedback');
+                resetFeedbackPill('cFeedback');
+            }
+
             // Calculate Resistance
-            // Slope m = I/V = 1/R
-            // Therefore R = 1/m
             let R = 0;
             if (m > 0.0001) {
                 R = 1 / m;
@@ -370,6 +394,31 @@
             } else {
                 document.getElementById('dispR').innerText = "--";
             }
+        }
+
+        function updateFeedbackPill(id, gradient) {
+            const el = document.getElementById(id);
+            const threshold = 0.001; // Epsilon for "perfect"
+            
+            // Gradient > 0 implies the current value is "Too High" (needs to decrease)
+            // Gradient < 0 implies the current value is "Too Low" (needs to increase)
+            
+            if (gradient > threshold) {
+                el.className = "feedback-pill fb-high";
+                el.innerText = "Too Large (↓ Reducing)";
+            } else if (gradient < -threshold) {
+                el.className = "feedback-pill fb-low";
+                el.innerText = "Too Small (↑ Increasing)";
+            } else {
+                el.className = "feedback-pill fb-good";
+                el.innerText = "Perfect";
+            }
+        }
+
+        function resetFeedbackPill(id) {
+            const el = document.getElementById(id);
+            el.className = "feedback-pill bg-slate-100 text-slate-500";
+            el.innerText = "Waiting...";
         }
 
         function enableButtons() {
