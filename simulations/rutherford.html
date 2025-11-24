@@ -257,11 +257,11 @@
             canvas.width = width;
             canvas.height = height;
             
-            // RESPONSIVE FIX: Scale down atoms for mobile phones
+            // RESPONSIVE FIX: Scale down atoms significantly for mobile phones
             if (width < 600) {
-                atomRadiusPlum = 30; // Mobile size
+                atomRadiusPlum = 18; // Much smaller for mobile
             } else {
-                atomRadiusPlum = 60; // Desktop/Tablet size
+                atomRadiusPlum = 60; // Standard for Desktop/Tablet
             }
 
             initAtoms();
@@ -446,12 +446,25 @@
             const rows = 3;
             const cols = 3;
             
-            const maxSpacingX = (width * 0.8) / (cols - 1);
-            const maxSpacingY = (height * 0.8) / (rows - 1);
+            // Responsive Layout Configuration
+            let widthFactor = 0.8; 
+            let centerX = width / 2;
             
-            const spacing = Math.max(80, Math.min(220, Math.min(maxSpacingX, maxSpacingY)));
+            if (width < 600) {
+                // Mobile Specifics:
+                widthFactor = 0.5; // Use only 50% of width for the grid
+                centerX = width * 0.65; // Shift grid to the right to leave space for particles
+            }
+
+            // Dynamic Spacing Calculation
+            const maxSpacingX = (width * widthFactor) / (cols - 1);
+            const maxSpacingY = (height * 0.6) / (rows - 1);
             
-            let startX = (width / 2) - ((cols-1) * spacing) / 2;
+            // Clamp spacing
+            const minSpacing = width < 600 ? 40 : 80;
+            const spacing = Math.max(minSpacing, Math.min(220, Math.min(maxSpacingX, maxSpacingY)));
+            
+            let startX = centerX - ((cols-1) * spacing) / 2;
             let startY = (height / 2) - ((rows-1) * spacing) / 2;
 
             for(let r=0; r<rows; r++) {
