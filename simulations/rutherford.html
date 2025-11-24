@@ -2,23 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Rutherford vs Thomson Scattering</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f9f9f9; /* Light Background for page */
+            background-color: #f9f9f9; 
             color: #333; 
             margin: 0;
             padding: 0;
-            min-height: 100vh; 
+            /* FIX: Use dynamic viewport height to account for Safari toolbars */
+            height: 100vh;
+            height: 100dvh; 
             display: flex;
             flex-direction: column;
-            overflow-y: auto; 
+            overflow: hidden; /* Prevent body scroll */
         }
 
         header {
-            padding: 15px;
+            padding: 10px; /* Reduced padding */
             text-align: center;
             background: #ffffff;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -29,7 +31,7 @@
 
         h1 {
             margin: 0;
-            font-size: 1.2rem;
+            font-size: 1.1rem; /* Compact header */
             color: #222;
         }
 
@@ -37,9 +39,11 @@
             flex-grow: 1;
             position: relative;
             width: 100%;
-            background: #ffffff; /* White Canvas for Projection */
+            background: #ffffff;
             overflow: hidden;
-            min-height: 50vh; 
+            /* FIX: Allow flexbox to shrink this area if needed */
+            height: 0; 
+            min-height: 0;
             border-bottom: 1px solid #333;
         }
 
@@ -49,28 +53,32 @@
             height: 100%;
         }
 
-        /* CONTROLS: REVERTED TO DARK THEME */
         .controls {
             background: #1e1e1e;
-            padding: 15px;
+            padding: 10px 15px;
             display: flex;
             flex-wrap: wrap;
-            gap: 20px;
+            gap: 15px;
             justify-content: center;
             align-items: center;
             border-top: 1px solid #333;
             flex-shrink: 0;
             color: #e0e0e0;
+            /* FIX: Handle scrolling within controls if screen is very short */
+            max-height: 50vh;
+            overflow-y: auto;
+            /* FIX: Add padding for iPhone Home Indicator */
+            padding-bottom: calc(10px + env(safe-area-inset-bottom));
         }
 
         .control-group {
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 4px;
         }
 
         label {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #aaa;
             font-weight: bold;
             text-transform: uppercase;
@@ -87,9 +95,10 @@
             background: #333;
             color: #ccc;
             border: none;
-            padding: 10px 20px;
+            padding: 8px 16px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 0.9rem;
             transition: all 0.2s;
         }
 
@@ -110,22 +119,21 @@
         #btn-pause:hover, #btn-toggle-atoms:hover {
             background: #555;
         }
-        /* Make toggle button look active if structure is hidden */
         #btn-toggle-atoms.active {
             background: #00bcd4;
             color: #000;
         }
 
         input[type="range"] {
-            width: 150px;
+            width: 140px;
             cursor: pointer;
         }
 
         .stats {
             font-family: monospace;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             background: #2c2c2c;
-            padding: 5px 10px;
+            padding: 4px 8px;
             border-radius: 4px;
             border-left: 3px solid #ff9800;
             color: #aaa;
@@ -191,7 +199,6 @@
         <div class="control-group">
             <div style="display: flex; gap: 8px;">
                 <button id="btn-pause" style="flex: 1;">Pause</button>
-                <!-- Initially active because structure is HIDDEN -->
                 <button id="btn-toggle-atoms" class="active" style="flex: 1;">Show Structure</button>
             </div>
         </div>
@@ -216,7 +223,7 @@
         let width, height;
         let particles = [];
         let atoms = [];
-        let MODE = 'plum'; // CHANGED DEFAULT TO PLUM PUDDING
+        let MODE = 'plum'; 
         
         // Counters
         let totalParticles = 0;
@@ -224,10 +231,10 @@
         let spawnTimer = 0;
 
         // Physics Constants
-        const RUTH_K = 2000; // Strength of repulsion
-        const PLUM_K = 15;    // Very weak force (diffuse charge)
-        const ATOM_RADIUS_PLUM = 60; // Constant size base
-        const ATOM_RADIUS_RUTH = 4; // Visual nucleus size
+        const RUTH_K = 2000; 
+        const PLUM_K = 15;    
+        const ATOM_RADIUS_PLUM = 60; 
+        const ATOM_RADIUS_RUTH = 4; 
         
         // UI Elements
         const uiTotal = document.getElementById('count-total');
@@ -240,7 +247,7 @@
         const btnToggleAtoms = document.getElementById('btn-toggle-atoms');
 
         let isPaused = false;
-        let showStructure = false; // CHANGED DEFAULT TO HIDDEN
+        let showStructure = false; 
 
         // --- Resizing Logic ---
         function resize() {
@@ -287,24 +294,23 @@
                     ctx.fillStyle = '#ff5722'; 
                     ctx.fill();
                     
-                    // Electron shell (Using the enlarged visualRadius)
+                    // Electron shell
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, visualRadius, 0, Math.PI * 2);
                     ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
                     ctx.stroke();
                 } else {
-                    // Plum Pudding Model (Using the enlarged visualRadius)
+                    // Plum Pudding Model
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, visualRadius, 0, Math.PI * 2);
                     
-                    // Cloud Gradient
                     let grad = ctx.createRadialGradient(this.x, this.y, 10, this.x, this.y, visualRadius);
                     grad.addColorStop(0, 'rgba(255, 152, 0, 0.3)'); 
                     grad.addColorStop(1, 'rgba(255, 152, 0, 0.05)');
                     ctx.fillStyle = grad;
                     ctx.fill();
 
-                    // Electrons (Distributed relative to larger radius)
+                    // Electrons
                     ctx.fillStyle = 'rgba(50, 50, 50, 0.6)';
                     ctx.font = "12px Arial";
                     ctx.fillText("-", this.x - visualRadius*0.3, this.y - visualRadius*0.3);
@@ -323,7 +329,6 @@
 
             reset() {
                 this.x = 0;
-                // Spread particles relative to screen height
                 let spread = height * 0.6; 
                 this.y = (height / 2) - (spread/2) + Math.random() * spread;
                 
@@ -350,14 +355,12 @@
                     let dist = Math.sqrt(distSq);
 
                     if (MODE === 'rutherford') {
-                        // Coulomb Repulsion
                         if (dist > 2 && dist < 150) {
                             let f = RUTH_K / distSq; 
                             forceX += f * (dx / dist);
                             forceY += f * (dy / dist);
                         }
                     } else {
-                        // Plum Pudding: Weak linear repulsion
                         if (dist < ATOM_RADIUS_PLUM) {
                             let strength = PLUM_K * (dist / (ATOM_RADIUS_PLUM * ATOM_RADIUS_PLUM)); 
                             forceX += strength * (dx / dist);
@@ -393,7 +396,6 @@
             }
 
             draw() {
-                // Trail - Blue
                 ctx.beginPath();
                 ctx.strokeStyle = 'rgba(21, 101, 192, 0.3)';
                 ctx.lineWidth = 2;
@@ -404,7 +406,6 @@
                 ctx.lineTo(this.x, this.y);
                 ctx.stroke();
 
-                // Head - Dark Blue
                 ctx.fillStyle = '#1565C0';
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, 2.5, 0, Math.PI*2);
