@@ -231,10 +231,10 @@
         let spawnTimer = 0;
 
         // Physics Constants
-        const RUTH_K = 2000; 
-        const PLUM_K = 15;    
-        const ATOM_RADIUS_PLUM = 60; 
-        const ATOM_RADIUS_RUTH = 4; 
+        const RUTH_K = 2000; // Strength of repulsion
+        const PLUM_K = 15;    // Very weak force (diffuse charge)
+        let atomRadiusPlum = 60; // Changed to let for responsive sizing
+        const ATOM_RADIUS_RUTH = 4; // Visual nucleus size
         
         // UI Elements
         const uiTotal = document.getElementById('count-total');
@@ -257,6 +257,13 @@
             canvas.width = width;
             canvas.height = height;
             
+            // RESPONSIVE FIX: Scale down atoms for mobile phones
+            if (width < 600) {
+                atomRadiusPlum = 30; // Mobile size
+            } else {
+                atomRadiusPlum = 60; // Desktop/Tablet size
+            }
+
             initAtoms();
         }
         window.addEventListener('resize', resize);
@@ -271,7 +278,7 @@
 
             draw(showDetails) {
                 // Consistent Visual Radius for ALL modes (1.5x base)
-                const visualRadius = ATOM_RADIUS_PLUM * 1.5;
+                const visualRadius = atomRadiusPlum * 1.5;
 
                 if (!showDetails) {
                     // Hidden Structure Mode
@@ -294,23 +301,24 @@
                     ctx.fillStyle = '#ff5722'; 
                     ctx.fill();
                     
-                    // Electron shell
+                    // Electron shell (Using the enlarged visualRadius)
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, visualRadius, 0, Math.PI * 2);
                     ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
                     ctx.stroke();
                 } else {
-                    // Plum Pudding Model
+                    // Plum Pudding Model (Using the enlarged visualRadius)
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, visualRadius, 0, Math.PI * 2);
                     
+                    // Cloud Gradient
                     let grad = ctx.createRadialGradient(this.x, this.y, 10, this.x, this.y, visualRadius);
                     grad.addColorStop(0, 'rgba(255, 152, 0, 0.3)'); 
                     grad.addColorStop(1, 'rgba(255, 152, 0, 0.05)');
                     ctx.fillStyle = grad;
                     ctx.fill();
 
-                    // Electrons
+                    // Electrons (Distributed relative to larger radius)
                     ctx.fillStyle = 'rgba(50, 50, 50, 0.6)';
                     ctx.font = "12px Arial";
                     ctx.fillText("-", this.x - visualRadius*0.3, this.y - visualRadius*0.3);
@@ -329,6 +337,7 @@
 
             reset() {
                 this.x = 0;
+                // Spread particles relative to screen height
                 let spread = height * 0.6; 
                 this.y = (height / 2) - (spread/2) + Math.random() * spread;
                 
@@ -369,9 +378,10 @@
                                 forceY += f * (dy / dist);
                             }
                         } else {
-                            // Plum Pudding
-                            if (dist < ATOM_RADIUS_PLUM) {
-                                let strength = PLUM_K * (dist / (ATOM_RADIUS_PLUM * ATOM_RADIUS_PLUM)); 
+                            // Plum Pudding: Weak linear repulsion inside the sphere
+                            if (dist < atomRadiusPlum) {
+                                // Scale force by distance relative to radius squared
+                                let strength = PLUM_K * (dist / (atomRadiusPlum * atomRadiusPlum)); 
                                 forceX += strength * (dx / dist);
                                 forceY += strength * (dy / dist);
                             }
