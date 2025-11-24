@@ -347,8 +347,11 @@
             const startX = margin;
             const startY = (h - gridH) / 2;
 
-            const markerSize = cellW * 0.20; 
-            const markerOffset = markerSize * 2; 
+            // --- MODIFIED MARKER LOGIC ---
+            // Larger Size: 35% of cell (was 20%)
+            const markerSize = cellW * 0.35; 
+            // Relative Offset: Decoupled to keep it close
+            const markerOffset = cellW * 0.5; 
             
             const anchors = [
                 {x: startX - markerOffset, y: startY - markerOffset}, 
@@ -379,7 +382,7 @@
                     const pixel = alignCtx.getImageData(0, 0, 1, 1).data;
                     const brightness = (pixel[0] + pixel[1] + pixel[2]) / 3;
                     
-                    // INCREASED THRESHOLD (160 = more forgiving)
+                    // INCREASED THRESHOLD (160 = more forgiving for shadows)
                     const isDark = brightness < 160;
                     
                     if(isDark) {
@@ -467,11 +470,10 @@
 
                 const res = await state.worker.recognize(workCvs.toDataURL());
                 
-                // CHECK CONFIDENCE
+                // CHECK CONFIDENCE (>65%)
                 const confidence = res.data.confidence;
                 const char = cleanChar(res.data.text);
 
-                // Only accept if we found a valid char AND confidence is high (>65%)
                 if(char && confidence > 65) {
                     state.answers[idx] = char;
                     renderLiveGrid();
