@@ -26,7 +26,7 @@
         video {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* This crops the video */
+            object-fit: cover;
             opacity: 0.9;
         }
         #overlay-canvas {
@@ -59,6 +59,9 @@
         .indicator-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; transition: background 0.2s; }
         .indicator-dot.ready { background: #eab308; box-shadow: 0 0 5px #eab308; }
         .indicator-dot.active { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } 100% { transform: translateX(0); } }
+        .shake { animation: shake 0.3s ease-in-out; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -66,7 +69,8 @@
     <!-- Navigation -->
     <nav class="bg-indigo-600 text-white p-3 shadow-md shrink-0">
         <div class="max-w-md mx-auto flex justify-between items-center">
-            <h1 class="text-lg font-bold tracking-tight">📝 QuickGrade Live</h1>
+            <!-- UPDATED TITLE -->
+            <h1 class="text-lg font-bold tracking-tight">📝 QuickGrade Live 1.0</h1>
             <div class="flex text-xs font-semibold bg-indigo-800 rounded-lg p-1">
                 <button onclick="switchTab('key')" id="nav-key" class="px-3 py-1 rounded hover:bg-indigo-600">Key</button>
                 <button onclick="switchTab('scan')" id="nav-scan" class="px-3 py-1 rounded bg-indigo-500">Scan</button>
@@ -91,6 +95,13 @@
         <!-- TAB 2: SCANNER -->
         <div id="tab-scan" class="tab-content active p-2 max-w-md mx-auto h-full flex flex-col">
             
+            <!-- Camera Selection Dropdown (New) -->
+            <div class="mb-2">
+                <select id="camera-select" onchange="changeCamera()" class="w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2">
+                    <option value="" disabled selected>Loading Cameras...</option>
+                </select>
+            </div>
+
             <!-- Camera Section -->
             <div id="camera-wrapper">
                 <video id="video" autoplay playsinline></video>
@@ -106,7 +117,7 @@
             <!-- Controls -->
             <div class="mt-3 grid grid-cols-2 gap-3 shrink-0">
                 <button id="btn-toggle-cam" onclick="toggleCamera()" class="bg-gray-700 text-white py-3 rounded-lg font-bold shadow flex justify-center items-center gap-2 text-sm">
-                    📷 Toggle Cam
+                    📷 Start
                 </button>
                 <button id="btn-reset" onclick="resetCurrentScan()" class="bg-red-100 text-red-600 py-3 rounded-lg font-bold shadow text-sm">
                     ↺ Reset
@@ -186,7 +197,8 @@
             stream: null,
             worker: null,
             queue: [],
-            processing: false
+            processing: false,
+            selectedDeviceId: null // New: Lock specific camera
         };
         let classData = [];
 
@@ -195,13 +207,61 @@
             initKeyUI();
             renderLiveGrid();
             
+            // Init Tesseract
             state.worker = Tesseract.createWorker({ logger: m => {} });
             await state.worker.load();
             await state.worker.loadLanguage('eng');
             await state.worker.initialize('eng');
             await state.worker.setParameters({ tessedit_char_whitelist: 'ABCD' });
             console.log("OCR Worker Ready");
+
+            // Init Camera List
+            await getCameras();
         };
+
+        async function getCameras() {
+            try {
+                // Request permission first to see labels
+                await navigator.mediaDevices.getUserMedia({ video: true });
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                
+                const select = document.getElementById('camera-select');
+                select.innerHTML = '';
+                
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `Camera ${index + 1}`;
+                    // Attempt to select the 'Back' camera by default
+                    if(device.label.toLowerCase().includes('back')) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+                
+                // If no back camera found/selected, select last one (often back on mobile)
+                if(select.selectedIndex === -1 && select.options.length > 0) {
+                    select.selectedIndex = select.options.length - 1;
+                }
+                
+                state.selectedDeviceId = select.value;
+
+            } catch(e) {
+                console.error("Error listing cameras", e);
+                document.getElementById('camera-select').innerHTML = '<option>Camera Permission Denied</option>';
+            }
+        }
+
+        function changeCamera() {
+            const select = document.getElementById('camera-select');
+            state.selectedDeviceId = select.value;
+            // If currently scanning, restart with new ID
+            if(state.isScanning) {
+                toggleCamera(); // Stop
+                setTimeout(toggleCamera, 500); // Start
+            }
+        }
 
         function switchTab(t) {
             document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
@@ -254,24 +314,39 @@
 
         // --- Camera & Loop ---
         async function toggleCamera() {
+            const btn = document.getElementById('btn-toggle-cam');
+            
             if(state.stream) {
                 state.stream.getTracks().forEach(t => t.stop());
                 state.stream = null;
                 state.isScanning = false;
                 updateStatus("Camera Offline", "off");
+                btn.innerText = "📷 Start";
+                btn.classList.replace('bg-red-600', 'bg-gray-700');
             } else {
                 try {
-                    state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: {ideal: 1920} } });
+                    // Use explicit deviceId to prevent lens switching
+                    const constraints = { 
+                        video: { 
+                            deviceId: state.selectedDeviceId ? { exact: state.selectedDeviceId } : undefined,
+                            width: {ideal: 1920},
+                            height: {ideal: 1080}
+                        } 
+                    };
+                    
+                    state.stream = await navigator.mediaDevices.getUserMedia(constraints);
                     const vid = document.getElementById('video');
                     vid.srcObject = state.stream;
                     vid.onloadedmetadata = () => {
                         state.isScanning = true;
                         updateStatus("Align Corners", "ready");
+                        btn.innerText = "⏹ Stop";
+                        btn.classList.replace('bg-gray-700', 'bg-red-600');
                         refillQueue();
                         requestAnimationFrame(scanLoop);
                     };
                 } catch(e) {
-                    alert("Camera Error: " + e.message);
+                    alert("Camera Error: " + e.message + "\nTry selecting a different camera.");
                 }
             }
         }
@@ -320,11 +395,8 @@
             else badge.style.border = "none";
         }
 
-        // --- COORDINATE MAPPING (Crucial Fix) ---
+        // --- COORDINATE MAPPING ---
         function mapToSource(vid, cvsX, cvsY, cvsW, cvsH) {
-            // Correctly maps canvas coordinates to video source coordinates 
-            // accounting for object-fit: cover
-            
             const vidW = vid.videoWidth;
             const vidH = vid.videoHeight;
             const viewW = vid.clientWidth;
@@ -336,22 +408,19 @@
             let renderW, renderH, offsetX, offsetY;
 
             if (vidRatio > viewRatio) {
-                // Video is wider: Height matches, Width cropped (sides)
                 renderH = viewH;
                 renderW = viewH * vidRatio;
                 offsetY = 0;
                 offsetX = (renderW - viewW) / 2;
             } else {
-                // Video is taller: Width matches, Height cropped (top/bottom)
                 renderW = viewW;
                 renderH = viewW / vidRatio;
                 offsetX = 0;
                 offsetY = (renderH - viewH) / 2;
             }
             
-            const scale = vidH / renderH; // Scaling factor
+            const scale = vidH / renderH;
 
-            // Map
             const sourceX = (cvsX + offsetX) * scale;
             const sourceY = (cvsY + offsetY) * scale;
             const sourceW = cvsW * scale;
@@ -397,19 +466,16 @@
 
             const alignCtx = document.getElementById('align-canvas').getContext('2d', {willReadFrequently: true});
             
-            let allAnchorsLocked = true;
+            // RELAXED LOCKING: Count valid anchors instead of requiring all
+            let lockedCount = 0;
 
             anchors.forEach(anc => {
-                ctx.strokeStyle = state.isAligned ? '#22c55e' : '#ef4444';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(anc.x, anc.y, markerSize, markerSize);
+                let strokeColor = '#ef4444'; 
                 
-                // Center Sample
                 const sampleW = markerSize * 0.5;
                 const sampX = anc.x + markerSize/2 - sampleW/2;
                 const sampY = anc.y + markerSize/2 - sampleW/2;
 
-                // USE CORRECT MAPPING
                 const src = mapToSource(vid, sampX, sampY, sampleW, sampleW);
                 
                 try {
@@ -422,13 +488,22 @@
                     if(isDark) {
                         ctx.fillStyle = 'rgba(34, 197, 94, 0.5)'; 
                         ctx.fillRect(anc.x, anc.y, markerSize, markerSize);
-                    } else {
-                        allAnchorsLocked = false;
+                        strokeColor = '#22c55e';
+                        lockedCount++; // INCREMENT VALID COUNT
+                    } else if(brightness < 200) {
+                        strokeColor = '#eab308'; 
                     }
-                } catch(e) { allAnchorsLocked = false; }
+                } catch(e) { }
+                
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(anc.x, anc.y, markerSize, markerSize);
             });
 
-            if(allAnchorsLocked) {
+            // REQUIRE ONLY 3 ANCHORS
+            const isAligned = lockedCount >= 3;
+
+            if(isAligned) {
                 ctx.strokeStyle = '#22c55e'; 
             } else {
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; 
@@ -451,14 +526,14 @@
                     ctx.font = 'bold 16px Arial';
                     ctx.textAlign = 'center';
                     ctx.fillText(state.answers[i], x + cellW/2, y + cellH/1.6);
-                } else if(isProcessing && allAnchorsLocked) {
+                } else if(isProcessing && isAligned) {
                     ctx.strokeStyle = '#eab308'; 
                     ctx.lineWidth = 3;
                     ctx.strokeRect(x+2, y+2, cellW-4, cellH-4);
                 }
             });
 
-            return allAnchorsLocked;
+            return isAligned;
         }
 
         // --- AI Logic ---
@@ -485,6 +560,9 @@
                 const startX = margin;
                 const startY = (h - gridH) / 2;
 
+                const scaleX = vid.videoWidth / w;
+                const scaleY = vid.videoHeight / h;
+
                 const boxData = LAYOUT[idx];
                 const px = cellW * 0.15; 
                 
@@ -493,7 +571,6 @@
                 const canvasCropW = cellW - px*2;
                 const canvasCropH = cellH - px*2;
 
-                // USE CORRECT MAPPING
                 const src = mapToSource(vid, canvasCropX, canvasCropY, canvasCropW, canvasCropH);
 
                 workCvs.width = src.w;
