@@ -26,7 +26,7 @@
         video {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: cover; /* This crops the video */
             opacity: 0.9;
         }
         #overlay-canvas {
@@ -59,9 +59,6 @@
         .indicator-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; transition: background 0.2s; }
         .indicator-dot.ready { background: #eab308; box-shadow: 0 0 5px #eab308; }
         .indicator-dot.active { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
-
-        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } 100% { transform: translateX(0); } }
-        .shake { animation: shake 0.3s ease-in-out; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -264,7 +261,7 @@
                 updateStatus("Camera Offline", "off");
             } else {
                 try {
-                    state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: {ideal: 1280} } });
+                    state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: {ideal: 1920} } });
                     const vid = document.getElementById('video');
                     vid.srcObject = state.stream;
                     vid.onloadedmetadata = () => {
@@ -323,6 +320,46 @@
             else badge.style.border = "none";
         }
 
+        // --- COORDINATE MAPPING (Crucial Fix) ---
+        function mapToSource(vid, cvsX, cvsY, cvsW, cvsH) {
+            // Correctly maps canvas coordinates to video source coordinates 
+            // accounting for object-fit: cover
+            
+            const vidW = vid.videoWidth;
+            const vidH = vid.videoHeight;
+            const viewW = vid.clientWidth;
+            const viewH = vid.clientHeight;
+
+            const vidRatio = vidW / vidH;
+            const viewRatio = viewW / viewH;
+
+            let renderW, renderH, offsetX, offsetY;
+
+            if (vidRatio > viewRatio) {
+                // Video is wider: Height matches, Width cropped (sides)
+                renderH = viewH;
+                renderW = viewH * vidRatio;
+                offsetY = 0;
+                offsetX = (renderW - viewW) / 2;
+            } else {
+                // Video is taller: Width matches, Height cropped (top/bottom)
+                renderW = viewW;
+                renderH = viewW / vidRatio;
+                offsetX = 0;
+                offsetY = (renderH - viewH) / 2;
+            }
+            
+            const scale = vidH / renderH; // Scaling factor
+
+            // Map
+            const sourceX = (cvsX + offsetX) * scale;
+            const sourceY = (cvsY + offsetY) * scale;
+            const sourceW = cvsW * scale;
+            const sourceH = cvsH * scale;
+
+            return { x: sourceX, y: sourceY, w: sourceW, h: sourceH };
+        }
+
         // --- Alignment & Overlay ---
         function processAlignmentAndOverlay() {
             const vid = document.getElementById('video');
@@ -347,10 +384,8 @@
             const startX = margin;
             const startY = (h - gridH) / 2;
 
-            // --- MODIFIED MARKER LOGIC ---
-            // Larger Size: 35% of cell (was 20%)
+            // Marker Config
             const markerSize = cellW * 0.35; 
-            // Relative Offset: Decoupled to keep it close
             const markerOffset = cellW * 0.5; 
             
             const anchors = [
@@ -361,8 +396,6 @@
             ];
 
             const alignCtx = document.getElementById('align-canvas').getContext('2d', {willReadFrequently: true});
-            const scaleX = vid.videoWidth / w;
-            const scaleY = vid.videoHeight / h;
             
             let allAnchorsLocked = true;
 
@@ -371,18 +404,19 @@
                 ctx.lineWidth = 2;
                 ctx.strokeRect(anc.x, anc.y, markerSize, markerSize);
                 
-                // INCREASED SAMPLE SIZE (50% of box)
+                // Center Sample
                 const sampleW = markerSize * 0.5;
-                const vidX = (anc.x + markerSize/2 - sampleW/2) * scaleX;
-                const vidY = (anc.y + markerSize/2 - sampleW/2) * scaleY;
-                const vidSampleW = sampleW * scaleX;
+                const sampX = anc.x + markerSize/2 - sampleW/2;
+                const sampY = anc.y + markerSize/2 - sampleW/2;
+
+                // USE CORRECT MAPPING
+                const src = mapToSource(vid, sampX, sampY, sampleW, sampleW);
                 
                 try {
-                    const frame = alignCtx.drawImage(vid, vidX, vidY, vidSampleW, vidSampleW, 0, 0, 1, 1);
+                    alignCtx.drawImage(vid, src.x, src.y, src.w, src.h, 0, 0, 1, 1);
                     const pixel = alignCtx.getImageData(0, 0, 1, 1).data;
                     const brightness = (pixel[0] + pixel[1] + pixel[2]) / 3;
                     
-                    // INCREASED THRESHOLD (160 = more forgiving for shadows)
                     const isDark = brightness < 160;
                     
                     if(isDark) {
@@ -451,26 +485,25 @@
                 const startX = margin;
                 const startY = (h - gridH) / 2;
 
-                const scaleX = vid.videoWidth / w;
-                const scaleY = vid.videoHeight / h;
-
                 const boxData = LAYOUT[idx];
                 const px = cellW * 0.15; 
                 
-                const cropX = (startX + boxData.c * cellW + px) * scaleX;
-                const cropY = (startY + boxData.r * cellH + px) * scaleY;
-                const cropW = (cellW - px*2) * scaleX;
-                const cropH = (cellH - px*2) * scaleY;
+                const canvasCropX = startX + boxData.c * cellW + px;
+                const canvasCropY = startY + boxData.r * cellH + px;
+                const canvasCropW = cellW - px*2;
+                const canvasCropH = cellH - px*2;
 
-                workCvs.width = cropW;
-                workCvs.height = cropH;
+                // USE CORRECT MAPPING
+                const src = mapToSource(vid, canvasCropX, canvasCropY, canvasCropW, canvasCropH);
+
+                workCvs.width = src.w;
+                workCvs.height = src.h;
                 
                 workCtx.filter = 'contrast(1.4) grayscale(1)';
-                workCtx.drawImage(vid, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+                workCtx.drawImage(vid, src.x, src.y, src.w, src.h, 0, 0, src.w, src.h);
 
                 const res = await state.worker.recognize(workCvs.toDataURL());
                 
-                // CHECK CONFIDENCE (>65%)
                 const confidence = res.data.confidence;
                 const char = cleanChar(res.data.text);
 
