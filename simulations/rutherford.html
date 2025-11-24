@@ -7,37 +7,40 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121212;
-            color: #e0e0e0;
+            background-color: #f9f9f9; /* Light Background for page */
+            color: #333; 
             margin: 0;
             padding: 0;
-            height: 100vh;
+            min-height: 100vh; 
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* Prevent scrolling on mobile */
+            overflow-y: auto; 
         }
 
         header {
             padding: 15px;
             text-align: center;
-            background: #1e1e1e;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            background: #ffffff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             z-index: 10;
+            flex-shrink: 0;
+            border-bottom: 1px solid #eee;
         }
 
         h1 {
             margin: 0;
             font-size: 1.2rem;
-            color: #fff;
+            color: #222;
         }
 
-        /* Main layout: Canvas takes available space */
         .simulation-area {
             flex-grow: 1;
             position: relative;
             width: 100%;
-            background: #000;
+            background: #ffffff; /* White Canvas for Projection */
             overflow: hidden;
+            min-height: 50vh; 
+            border-bottom: 1px solid #333;
         }
 
         canvas {
@@ -46,7 +49,7 @@
             height: 100%;
         }
 
-        /* Controls overlay */
+        /* CONTROLS: REVERTED TO DARK THEME */
         .controls {
             background: #1e1e1e;
             padding: 15px;
@@ -56,6 +59,8 @@
             justify-content: center;
             align-items: center;
             border-top: 1px solid #333;
+            flex-shrink: 0;
+            color: #e0e0e0;
         }
 
         .control-group {
@@ -95,6 +100,22 @@
             color: #000;
         }
 
+        /* Specific buttons */
+        #btn-pause, #btn-toggle-atoms {
+            background: #444;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: #fff;
+        }
+        #btn-pause:hover, #btn-toggle-atoms:hover {
+            background: #555;
+        }
+        /* Make toggle button look active if structure is hidden */
+        #btn-toggle-atoms.active {
+            background: #00bcd4;
+            color: #000;
+        }
+
         input[type="range"] {
             width: 150px;
             cursor: pointer;
@@ -107,17 +128,19 @@
             padding: 5px 10px;
             border-radius: 4px;
             border-left: 3px solid #ff9800;
+            color: #aaa;
         }
 
-        /* Legend Overlay inside canvas */
         .legend-overlay {
             position: absolute;
             top: 10px;
             left: 10px;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(255, 255, 255, 0.9);
             padding: 10px;
             border-radius: 8px;
             pointer-events: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
         }
         .legend-item {
             display: flex;
@@ -125,6 +148,7 @@
             gap: 8px;
             font-size: 0.8rem;
             margin-bottom: 4px;
+            color: #333;
         }
         .dot { width: 8px; height: 8px; border-radius: 50%; }
     </style>
@@ -139,13 +163,13 @@
         <canvas id="simCanvas"></canvas>
         <div class="legend-overlay">
             <div class="legend-item">
-                <span class="dot" style="background:#ffeb3b;"></span> Alpha Particle
+                <span class="dot" style="background:#1565C0;"></span> Alpha Particle
             </div>
             <div class="legend-item" id="legend-target">
                 <span class="dot" style="background:#ff5722;"></span> Gold Nucleus
             </div>
-            <div style="margin-top:5px; font-size: 0.75rem; color:#bbb; max-width: 200px;" id="model-explanation">
-                Most particles pass through empty space.
+            <div style="margin-top:5px; font-size: 0.75rem; color:#666; max-width: 200px;" id="model-explanation">
+                Positive charge is spread out. The weak electric field causes only minor deviations. No backscattering.
             </div>
         </div>
     </div>
@@ -154,25 +178,33 @@
         <div class="control-group">
             <label>Atomic Model</label>
             <div class="btn-group">
-                <button id="btn-plum">Plum Pudding</button>
-                <button id="btn-rutherford" class="active">Rutherford</button>
+                <button id="btn-plum" class="active">Plum Pudding</button>
+                <button id="btn-rutherford">Rutherford</button>
             </div>
         </div>
 
         <div class="control-group">
             <label>Beam Speed</label>
-            <input type="range" id="speed-slider" min="5" max="15" value="8">
+            <input type="range" id="speed-slider" min="5" max="25" value="12">
+        </div>
+
+        <div class="control-group">
+            <div style="display: flex; gap: 8px;">
+                <button id="btn-pause" style="flex: 1;">Pause</button>
+                <!-- Initially active because structure is HIDDEN -->
+                <button id="btn-toggle-atoms" class="active" style="flex: 1;">Show Structure</button>
+            </div>
         </div>
 
         <div class="control-group">
             <label>Statistics</label>
             <div class="stats">
                 Fired: <span id="count-total">0</span><br>
-                Backscattered: <span id="count-hit">0</span>
+                Back-scattered: <span id="count-hit">0</span>
             </div>
         </div>
 
-        <button id="btn-clear" style="border-radius: 6px;">Clear Trails</button>
+        <button id="btn-clear" style="border-radius: 6px; background: #ff5252; color: white;">Clear Trails</button>
     </div>
 
     <script>
@@ -184,18 +216,18 @@
         let width, height;
         let particles = [];
         let atoms = [];
-        let MODE = 'rutherford'; // 'plum' or 'rutherford'
+        let MODE = 'plum'; // CHANGED DEFAULT TO PLUM PUDDING
         
         // Counters
         let totalParticles = 0;
         let backScatters = 0;
         let spawnTimer = 0;
 
-        // Physics Configuration
-        const RUTH_K = 2500;  // Strong force for nucleus
-        const PLUM_K = 15;    // Very weak force (diffuse charge) - reduced from 150
-        const ATOM_RADIUS_PLUM = 60;
-        const ATOM_RADIUS_RUTH = 5; // Visual radius only
+        // Physics Constants
+        const RUTH_K = 2000; // Strength of repulsion
+        const PLUM_K = 15;    // Very weak force (diffuse charge)
+        const ATOM_RADIUS_PLUM = 60; // Constant size base
+        const ATOM_RADIUS_RUTH = 4; // Visual nucleus size
         
         // UI Elements
         const uiTotal = document.getElementById('count-total');
@@ -204,17 +236,21 @@
         const btnRuth = document.getElementById('btn-rutherford');
         const speedSlider = document.getElementById('speed-slider');
         const legendText = document.getElementById('model-explanation');
+        const btnPause = document.getElementById('btn-pause');
+        const btnToggleAtoms = document.getElementById('btn-toggle-atoms');
 
-        // --- Resizing Logic (Fixes Elongation) ---
+        let isPaused = false;
+        let showStructure = false; // CHANGED DEFAULT TO HIDDEN
+
+        // --- Resizing Logic ---
         function resize() {
-            // Set canvas internal resolution to match the CSS display size
             width = container.clientWidth;
             height = container.clientHeight;
             
             canvas.width = width;
             canvas.height = height;
             
-            initAtoms(); // Re-center atoms when screen changes
+            initAtoms();
         }
         window.addEventListener('resize', resize);
 
@@ -226,37 +262,55 @@
                 this.y = y;
             }
 
-            draw() {
+            draw(showDetails) {
+                // Consistent Visual Radius for ALL modes (1.5x base)
+                const visualRadius = ATOM_RADIUS_PLUM * 1.5;
+
+                if (!showDetails) {
+                    // Hidden Structure Mode
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, visualRadius, 0, Math.PI * 2);
+                    
+                    // Dotted Dark Gray Line
+                    ctx.strokeStyle = 'rgba(80, 80, 80, 0.6)'; 
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]); 
+                    ctx.stroke();
+                    ctx.setLineDash([]); 
+                    return;
+                }
+
                 if (MODE === 'rutherford') {
                     // Tiny Nucleus
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, ATOM_RADIUS_RUTH, 0, Math.PI * 2);
-                    ctx.fillStyle = '#ff5722'; // Deep Orange
+                    ctx.fillStyle = '#ff5722'; 
                     ctx.fill();
                     
-                    // Faint hint of electron shells (mostly empty space)
+                    // Electron shell (Using the enlarged visualRadius)
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, ATOM_RADIUS_PLUM, 0, Math.PI * 2);
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                    ctx.arc(this.x, this.y, visualRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
                     ctx.stroke();
                 } else {
-                    // Plum Pudding: Large diffuse positive sphere
+                    // Plum Pudding Model (Using the enlarged visualRadius)
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, ATOM_RADIUS_PLUM, 0, Math.PI * 2);
-                    // Radial gradient to look like a cloud
-                    let grad = ctx.createRadialGradient(this.x, this.y, 10, this.x, this.y, ATOM_RADIUS_PLUM);
-                    grad.addColorStop(0, 'rgba(255, 87, 34, 0.3)');
-                    grad.addColorStop(1, 'rgba(255, 87, 34, 0.05)');
+                    ctx.arc(this.x, this.y, visualRadius, 0, Math.PI * 2);
+                    
+                    // Cloud Gradient
+                    let grad = ctx.createRadialGradient(this.x, this.y, 10, this.x, this.y, visualRadius);
+                    grad.addColorStop(0, 'rgba(255, 152, 0, 0.3)'); 
+                    grad.addColorStop(1, 'rgba(255, 152, 0, 0.05)');
                     ctx.fillStyle = grad;
                     ctx.fill();
 
-                    // Electrons (The Plums)
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                    // Electrons (Distributed relative to larger radius)
+                    ctx.fillStyle = 'rgba(50, 50, 50, 0.6)';
                     ctx.font = "12px Arial";
-                    ctx.fillText("-", this.x - 20, this.y - 20);
-                    ctx.fillText("-", this.x + 20, this.y + 10);
-                    ctx.fillText("-", this.x - 10, this.y + 30);
-                    ctx.fillText("-", this.x + 5, this.y - 35);
+                    ctx.fillText("-", this.x - visualRadius*0.3, this.y - visualRadius*0.3);
+                    ctx.fillText("-", this.x + visualRadius*0.3, this.y + visualRadius*0.2);
+                    ctx.fillText("-", this.x - visualRadius*0.2, this.y + visualRadius*0.5);
+                    ctx.fillText("-", this.x + visualRadius*0.1, this.y - visualRadius*0.6);
                 }
             }
         }
@@ -264,14 +318,12 @@
         class Particle {
             constructor() {
                 this.reset();
-                // Pre-warm trails slightly off-screen
                 this.x = -10;
             }
 
             reset() {
                 this.x = 0;
-                // Spread particles across the height, centered on atoms
-                // We target the center row of atoms mostly for the demo
+                // Spread particles relative to screen height
                 let spread = height * 0.6; 
                 this.y = (height / 2) - (spread/2) + Math.random() * spread;
                 
@@ -288,7 +340,6 @@
             }
 
             update() {
-                // Physics
                 let forceX = 0;
                 let forceY = 0;
 
@@ -299,21 +350,15 @@
                     let dist = Math.sqrt(distSq);
 
                     if (MODE === 'rutherford') {
-                        // Rutherford: 1/r^2 repulsion
-                        // Cap distance to prevent division by zero/explosion
+                        // Coulomb Repulsion
                         if (dist > 2 && dist < 150) {
                             let f = RUTH_K / distSq; 
                             forceX += f * (dx / dist);
                             forceY += f * (dy / dist);
                         }
                     } else {
-                        // Plum Pudding: Linear repulsion inside the sphere (E ~ r)
-                        // Outside the sphere, it acts like 1/r^2 but much weaker
+                        // Plum Pudding: Weak linear repulsion
                         if (dist < ATOM_RADIUS_PLUM) {
-                            // Inside: Force pushes away from center, increasing with r 
-                            // (Simulating pushing through positive charge cloud)
-                            // Note: Actually, E-field is E = kQr/R^3 inside a uniform sphere.
-                            // We simplify to a weak push away.
                             let strength = PLUM_K * (dist / (ATOM_RADIUS_PLUM * ATOM_RADIUS_PLUM)); 
                             forceX += strength * (dx / dist);
                             forceY += strength * (dy / dist);
@@ -324,11 +369,9 @@
                 this.vx += forceX;
                 this.vy += forceY;
 
-                // Move
                 this.x += this.vx;
                 this.y += this.vy;
 
-                // Trail management
                 if (this.history.length === 0 || 
                     Math.abs(this.x - this.history[this.history.length-1].x) > 4 ||
                     Math.abs(this.y - this.history[this.history.length-1].y) > 4) {
@@ -336,9 +379,7 @@
                 }
                 if (this.history.length > 40) this.history.shift();
 
-                // Stats for Rutherford Backscatter
                 if (MODE === 'rutherford' && !this.deflected) {
-                    // If moving left (vx < 0), it bounced back
                     if (this.vx < 0) {
                         this.deflected = true;
                         backScatters++;
@@ -346,15 +387,15 @@
                     }
                 }
 
-                // Kill if off screen
                 if (this.x > width + 50 || this.x < -50 || this.y < -50 || this.y > height + 50) {
                     this.dead = true;
                 }
             }
 
             draw() {
+                // Trail - Blue
                 ctx.beginPath();
-                ctx.strokeStyle = 'rgba(255, 235, 59, 0.4)';
+                ctx.strokeStyle = 'rgba(21, 101, 192, 0.3)';
                 ctx.lineWidth = 2;
                 if (this.history.length > 0) {
                     ctx.moveTo(this.history[0].x, this.history[0].y);
@@ -363,7 +404,8 @@
                 ctx.lineTo(this.x, this.y);
                 ctx.stroke();
 
-                ctx.fillStyle = '#ffeb3b';
+                // Head - Dark Blue
+                ctx.fillStyle = '#1565C0';
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, 2.5, 0, Math.PI*2);
                 ctx.fill();
@@ -374,52 +416,77 @@
 
         function initAtoms() {
             atoms = [];
-            // Create a centered layout of atoms
             const rows = 3;
             const cols = 3;
-            const spacingX = 140;
-            const spacingY = 140;
             
-            let startX = (width / 2) - ((cols-1) * spacingX) / 2;
-            let startY = (height / 2) - ((rows-1) * spacingY) / 2;
+            const maxSpacingX = (width * 0.8) / (cols - 1);
+            const maxSpacingY = (height * 0.8) / (rows - 1);
+            
+            const spacing = Math.max(80, Math.min(220, Math.min(maxSpacingX, maxSpacingY)));
+            
+            let startX = (width / 2) - ((cols-1) * spacing) / 2;
+            let startY = (height / 2) - ((rows-1) * spacing) / 2;
 
             for(let r=0; r<rows; r++) {
                 for(let c=0; c<cols; c++) {
-                    // Add slight offset to make it look natural
-                    let offY = (c % 2 === 0) ? 0 : 30; 
-                    atoms.push(new Atom(startX + c*spacingX, startY + r*spacingY + offY));
+                    let offY = (c % 2 === 0) ? 0 : (spacing * 0.2); 
+                    atoms.push(new Atom(startX + c*spacing, startY + r*spacing + offY));
                 }
             }
         }
 
         function loop() {
-            // Fade effect for trails? No, clear fully for clean physics lines
-            ctx.fillStyle = 'black'; 
+            ctx.fillStyle = '#ffffff'; 
             ctx.fillRect(0, 0, width, height);
 
-            // Draw Atoms
-            for (let a of atoms) a.draw();
+            for (let a of atoms) a.draw(showStructure);
 
-            // Spawn Particles
-            spawnTimer++;
-            // Spawn faster if slider is high
-            if (spawnTimer > 5) {
-                particles.push(new Particle());
-                spawnTimer = 0;
+            if (!isPaused) {
+                spawnTimer++;
+                if (spawnTimer > 5) {
+                    particles.push(new Particle());
+                    spawnTimer = 0;
+                }
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    let p = particles[i];
+                    p.update();
+                    if (p.dead) particles.splice(i, 1);
+                }
             }
 
-            // Update Particles
-            for (let i = particles.length - 1; i >= 0; i--) {
-                let p = particles[i];
-                p.update();
-                p.draw();
-                if (p.dead) particles.splice(i, 1);
+            for (let p of particles) p.draw();
+
+            if (isPaused) {
+                ctx.fillStyle = 'rgba(50, 50, 50, 0.8)';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText("PAUSED", 20, 30);
+            }
+            
+            if (!showStructure) {
+                ctx.fillStyle = 'rgba(100, 100, 100, 0.8)';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'right';
+                ctx.fillText("Gold Foil View (Structure Hidden)", width - 20, 30);
+                ctx.textAlign = 'start';
             }
 
             requestAnimationFrame(loop);
         }
 
         // --- Event Listeners ---
+
+        btnPause.onclick = () => {
+            isPaused = !isPaused;
+            btnPause.innerText = isPaused ? "Resume" : "Pause";
+            btnPause.classList.toggle('active', isPaused);
+        };
+
+        btnToggleAtoms.onclick = () => {
+            showStructure = !showStructure;
+            btnToggleAtoms.innerText = showStructure ? "Hide Structure" : "Show Structure";
+            btnToggleAtoms.classList.toggle('active', !showStructure);
+        };
 
         document.getElementById('btn-clear').onclick = () => {
             particles = [];
@@ -434,7 +501,7 @@
             btnPlum.classList.add('active');
             btnRuth.classList.remove('active');
             legendText.innerText = "Positive charge is spread out. The weak electric field causes only minor deviations. No backscattering.";
-            particles = []; // Clear to show fresh behavior
+            particles = [];
         };
 
         btnRuth.onclick = () => {
@@ -446,7 +513,7 @@
         };
 
         // Init
-        resize(); // Set initial size
+        resize();
         loop();
 
     </script>
