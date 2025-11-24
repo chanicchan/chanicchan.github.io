@@ -16,7 +16,6 @@
             position: relative;
             width: 100%;
             max-width: 640px;
-            /* Height calculates dynamically in JS, but set min here */
             min-height: 320px; 
             margin: 0 auto;
             background: #000;
@@ -61,7 +60,6 @@
         .indicator-dot.ready { background: #eab308; box-shadow: 0 0 5px #eab308; }
         .indicator-dot.active { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
 
-        /* Shake animation for bad alignment hint */
         @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } 100% { transform: translateX(0); } }
         .shake { animation: shake 0.3s ease-in-out; }
     </style>
@@ -178,7 +176,6 @@
     <script>
         // --- Config ---
         const TOTAL_Q = 15;
-        // Layout: 2 Rows, 10 Cols.
         const LAYOUT = [];
         for(let i=0; i<10; i++) LAYOUT.push({id: i+1, r:0, c:i});
         for(let i=0; i<5; i++) LAYOUT.push({id: i+11, r:1, c:i});
@@ -188,7 +185,7 @@
             answers: new Array(TOTAL_Q).fill(null),
             key: new Array(TOTAL_Q).fill('A'),
             isScanning: false,
-            isAligned: false, // New: Must detect markers
+            isAligned: false,
             stream: null,
             worker: null,
             queue: [],
@@ -201,7 +198,6 @@
             initKeyUI();
             renderLiveGrid();
             
-            // Init Tesseract
             state.worker = Tesseract.createWorker({ logger: m => {} });
             await state.worker.load();
             await state.worker.loadLanguage('eng');
@@ -323,7 +319,7 @@
             if(txt.innerText !== text) txt.innerText = text;
             dot.className = `indicator-dot ${type}`;
             
-            if(type === 'active') badge.style.border = "1px solid #4ade80"; // Green border
+            if(type === 'active') badge.style.border = "1px solid #4ade80"; 
             else badge.style.border = "none";
         }
 
@@ -333,7 +329,6 @@
             const cvs = document.getElementById('overlay-canvas');
             const ctx = cvs.getContext('2d');
 
-            // Resize canvas if needed
             if(cvs.width !== vid.clientWidth) {
                 cvs.width = vid.clientWidth;
                 cvs.height = vid.clientHeight;
@@ -343,33 +338,25 @@
             const h = cvs.height;
             ctx.clearRect(0,0,w,h);
 
-            // --- Geometry Definitions ---
-            // Based on image_657de4.png: Grid is 10 cols wide.
-            // Markers are small squares at the 4 corners outside the grid.
             const margin = 30;
             const gridW = w - (margin*2);
             const cellW = gridW / 10; 
-            const cellH = cellW;      // SQUARE CELLS
+            const cellH = cellW;      
             const gridH = cellH * 2;  
             
             const startX = margin;
             const startY = (h - gridH) / 2;
 
-            // NEW: Smaller Markers based on file
-            // In image, marker looks ~1/4 to 1/5 of a cell width
             const markerSize = cellW * 0.20; 
-            
-            // Offset: Placed diagonally outside corners
             const markerOffset = markerSize * 2; 
             
             const anchors = [
-                {x: startX - markerOffset, y: startY - markerOffset}, // TL
-                {x: startX + gridW + markerOffset - markerSize, y: startY - markerOffset}, // TR
-                {x: startX - markerOffset, y: startY + gridH + markerOffset - markerSize}, // BL
-                {x: startX + gridW + markerOffset - markerSize, y: startY + gridH + markerOffset - markerSize} // BR
+                {x: startX - markerOffset, y: startY - markerOffset}, 
+                {x: startX + gridW + markerOffset - markerSize, y: startY - markerOffset}, 
+                {x: startX - markerOffset, y: startY + gridH + markerOffset - markerSize}, 
+                {x: startX + gridW + markerOffset - markerSize, y: startY + gridH + markerOffset - markerSize} 
             ];
 
-            // --- Alignment Check ---
             const alignCtx = document.getElementById('align-canvas').getContext('2d', {willReadFrequently: true});
             const scaleX = vid.videoWidth / w;
             const scaleY = vid.videoHeight / h;
@@ -377,14 +364,12 @@
             let allAnchorsLocked = true;
 
             anchors.forEach(anc => {
-                // Draw marker guide
                 ctx.strokeStyle = state.isAligned ? '#22c55e' : '#ef4444';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(anc.x, anc.y, markerSize, markerSize);
                 
-                // Check brightness
-                // Sample purely center of the marker box (inner 30%)
-                const sampleW = markerSize * 0.3;
+                // INCREASED SAMPLE SIZE (50% of box)
+                const sampleW = markerSize * 0.5;
                 const vidX = (anc.x + markerSize/2 - sampleW/2) * scaleX;
                 const vidY = (anc.y + markerSize/2 - sampleW/2) * scaleY;
                 const vidSampleW = sampleW * scaleX;
@@ -394,8 +379,8 @@
                     const pixel = alignCtx.getImageData(0, 0, 1, 1).data;
                     const brightness = (pixel[0] + pixel[1] + pixel[2]) / 3;
                     
-                    // Threshold for "Dark" (Forgiving < 130 for typical indoor lighting)
-                    const isDark = brightness < 130;
+                    // INCREASED THRESHOLD (160 = more forgiving)
+                    const isDark = brightness < 160;
                     
                     if(isDark) {
                         ctx.fillStyle = 'rgba(34, 197, 94, 0.5)'; 
@@ -406,11 +391,10 @@
                 } catch(e) { allAnchorsLocked = false; }
             });
 
-            // --- Draw Grid ---
             if(allAnchorsLocked) {
-                ctx.strokeStyle = '#22c55e'; // Green grid when aligned
+                ctx.strokeStyle = '#22c55e'; 
             } else {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // Faint grid when not
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; 
             }
             
             LAYOUT.forEach((box, i) => {
@@ -431,7 +415,7 @@
                     ctx.textAlign = 'center';
                     ctx.fillText(state.answers[i], x + cellW/2, y + cellH/1.6);
                 } else if(isProcessing && allAnchorsLocked) {
-                    ctx.strokeStyle = '#eab308'; // Yellow processing ring
+                    ctx.strokeStyle = '#eab308'; 
                     ctx.lineWidth = 3;
                     ctx.strokeRect(x+2, y+2, cellW-4, cellH-4);
                 }
@@ -454,13 +438,12 @@
                 const workCtx = workCvs.getContext('2d');
                 const dispCvs = document.getElementById('overlay-canvas');
                 
-                // Dimensions (Re-calced to match drawOverlay)
                 const margin = 30;
                 const w = dispCvs.width;
                 const h = dispCvs.height;
                 const gridW = w - (margin*2);
                 const cellW = gridW / 10;
-                const cellH = cellW; // Square
+                const cellH = cellW; 
                 const gridH = cellH * 2;
                 const startX = margin;
                 const startY = (h - gridH) / 2;
@@ -469,7 +452,7 @@
                 const scaleY = vid.videoHeight / h;
 
                 const boxData = LAYOUT[idx];
-                const px = cellW * 0.15; // Crop inside borders
+                const px = cellW * 0.15; 
                 
                 const cropX = (startX + boxData.c * cellW + px) * scaleX;
                 const cropY = (startY + boxData.r * cellH + px) * scaleY;
@@ -479,14 +462,17 @@
                 workCvs.width = cropW;
                 workCvs.height = cropH;
                 
-                // Pre-processing for OCR (Contrast)
                 workCtx.filter = 'contrast(1.4) grayscale(1)';
                 workCtx.drawImage(vid, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
                 const res = await state.worker.recognize(workCvs.toDataURL());
+                
+                // CHECK CONFIDENCE
+                const confidence = res.data.confidence;
                 const char = cleanChar(res.data.text);
 
-                if(char) {
+                // Only accept if we found a valid char AND confidence is high (>65%)
+                if(char && confidence > 65) {
                     state.answers[idx] = char;
                     renderLiveGrid();
                 } else {
