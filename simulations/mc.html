@@ -11,12 +11,13 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         
-        /* Compact Camera View */
+        /* Camera View */
         #camera-wrapper {
             position: relative;
             width: 100%;
             max-width: 640px;
-            height: 320px; /* Fixed height to not fill screen */
+            /* Height calculates dynamically in JS, but set min here */
+            min-height: 320px; 
             margin: 0 auto;
             background: #000;
             overflow: hidden;
@@ -26,8 +27,8 @@
         video {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Fill the box */
-            opacity: 0.8;
+            object-fit: cover;
+            opacity: 0.9;
         }
         #overlay-canvas {
             position: absolute;
@@ -37,23 +38,32 @@
             height: 100%;
         }
         
-        /* Floating Status Badge */
+        /* Alignment Status Badge */
         .status-badge {
             position: absolute;
             bottom: 10px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.8);
             color: white;
-            padding: 5px 12px;
+            padding: 6px 16px;
             border-radius: 20px;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            transition: all 0.2s;
         }
-        .indicator { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
-        .indicator.active { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .status-text { font-weight: 600; }
+        
+        .indicator-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; transition: background 0.2s; }
+        .indicator-dot.ready { background: #eab308; box-shadow: 0 0 5px #eab308; }
+        .indicator-dot.active { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+
+        /* Shake animation for bad alignment hint */
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } 100% { transform: translateX(0); } }
+        .shake { animation: shake 0.3s ease-in-out; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -92,26 +102,26 @@
                 <canvas id="overlay-canvas"></canvas>
                 
                 <!-- Overlay UI -->
-                <div class="status-badge">
-                    <div id="status-dot" class="indicator"></div>
-                    <span id="scan-status-text">Camera Offline</span>
+                <div class="status-badge" id="status-badge">
+                    <div id="status-dot" class="indicator-dot"></div>
+                    <span id="scan-status-text" class="status-text">Start Camera</span>
                 </div>
             </div>
 
             <!-- Controls -->
             <div class="mt-3 grid grid-cols-2 gap-3 shrink-0">
-                <button id="btn-toggle-cam" onclick="toggleCamera()" class="bg-gray-700 text-white py-3 rounded-lg font-bold shadow flex justify-center items-center gap-2">
-                    📷 Start Cam
+                <button id="btn-toggle-cam" onclick="toggleCamera()" class="bg-gray-700 text-white py-3 rounded-lg font-bold shadow flex justify-center items-center gap-2 text-sm">
+                    📷 Toggle Cam
                 </button>
-                <button id="btn-reset" onclick="resetCurrentScan()" class="bg-red-100 text-red-600 py-3 rounded-lg font-bold shadow">
+                <button id="btn-reset" onclick="resetCurrentScan()" class="bg-red-100 text-red-600 py-3 rounded-lg font-bold shadow text-sm">
                     ↺ Reset
                 </button>
             </div>
 
             <!-- Progress Bar -->
             <div class="mt-4 bg-white p-3 rounded-lg shadow shrink-0">
-                <div class="flex justify-between text-sm mb-1 font-semibold text-gray-600">
-                    <span>Progress</span>
+                <div class="flex justify-between text-xs mb-1 font-bold text-gray-500 uppercase">
+                    <span>Scan Progress</span>
                     <span id="progress-text">0/15</span>
                 </div>
                 <div class="w-full bg-gray-200 rounded-full h-2.5">
@@ -121,7 +131,7 @@
 
             <!-- Live Results Grid -->
             <div class="mt-3 flex-grow overflow-y-auto bg-white rounded-lg shadow p-3">
-                <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Detected Answers</h3>
+                <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Results</h3>
                 <div id="live-results" class="grid grid-cols-5 gap-2">
                     <!-- Populated dynamically -->
                 </div>
@@ -159,27 +169,30 @@
             </div>
         </div>
 
-        <!-- Worker Canvas -->
+        <!-- Worker Canvas (Hidden) -->
         <canvas id="worker-canvas" class="hidden"></canvas>
+        <!-- Alignment Check Canvas (Hidden) -->
+        <canvas id="align-canvas" class="hidden"></canvas>
     </main>
 
     <script>
         // --- Config ---
         const TOTAL_Q = 15;
-        // Paper layout definition (2 Rows, 10 Cols grid)
-        // Q1-10 in Row 0, Q11-15 in Row 1
+        // Layout: 2 Rows, 10 Cols.
+        // Important: We will calculate dimensions to keep cells SQUARE.
         const LAYOUT = [];
         for(let i=0; i<10; i++) LAYOUT.push({id: i+1, r:0, c:i});
         for(let i=0; i<5; i++) LAYOUT.push({id: i+11, r:1, c:i});
 
         // --- State ---
         let state = {
-            answers: new Array(TOTAL_Q).fill(null), // null = not scanned
+            answers: new Array(TOTAL_Q).fill(null),
             key: new Array(TOTAL_Q).fill('A'),
             isScanning: false,
+            isAligned: false, // New: Must detect markers
             stream: null,
             worker: null,
-            queue: [], // Indices of questions waiting to be scanned
+            queue: [],
             processing: false
         };
         let classData = [];
@@ -188,27 +201,22 @@
         window.onload = async () => {
             initKeyUI();
             renderLiveGrid();
-            // Initialize Tesseract Worker upfront
-            state.worker = Tesseract.createWorker({
-                logger: m => console.log(m.status)
-            });
+            
+            // Init Tesseract
+            state.worker = Tesseract.createWorker({ logger: m => {} });
             await state.worker.load();
             await state.worker.loadLanguage('eng');
             await state.worker.initialize('eng');
-            await state.worker.setParameters({
-                tessedit_char_whitelist: 'ABCD' // Optimize for multiple choice
-            });
+            await state.worker.setParameters({ tessedit_char_whitelist: 'ABCD' });
             console.log("OCR Worker Ready");
         };
 
         function switchTab(t) {
             document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
             document.getElementById('tab-'+t).classList.add('active');
-            // Update Nav style
             ['key','scan','stats'].forEach(n => {
                 const btn = document.getElementById('nav-'+n);
-                if(n===t) btn.className = "px-3 py-1 rounded bg-indigo-500";
-                else btn.className = "px-3 py-1 rounded hover:bg-indigo-600";
+                btn.className = n===t ? "px-3 py-1 rounded bg-indigo-500" : "px-3 py-1 rounded hover:bg-indigo-600";
             });
         }
 
@@ -238,11 +246,10 @@
                 `;
             }).join('');
             
-            // Update Progress
             const doneCount = state.answers.filter(a => a).length;
             document.getElementById('progress-text').innerText = `${doneCount}/${TOTAL_Q}`;
             document.getElementById('progress-bar').style.width = `${(doneCount/TOTAL_Q)*100}%`;
-            document.getElementById('btn-save').disabled = doneCount === 0; // Can save partials
+            document.getElementById('btn-save').disabled = doneCount === 0;
         }
 
         function manualEdit(idx) {
@@ -250,41 +257,24 @@
             if(val && "ABCD".includes(val.toUpperCase())) {
                 state.answers[idx] = val.toUpperCase();
                 renderLiveGrid();
-                drawOverlay(); // Refresh overlay colors
             }
         }
 
-        // --- Camera Logic ---
+        // --- Camera & Loop ---
         async function toggleCamera() {
-            const btn = document.getElementById('btn-toggle-cam');
-            const statusText = document.getElementById('scan-status-text');
-            const statusDot = document.getElementById('status-dot');
-
             if(state.stream) {
-                // Stop
                 state.stream.getTracks().forEach(t => t.stop());
                 state.stream = null;
                 state.isScanning = false;
-                btn.innerText = "📷 Start Cam";
-                statusText.innerText = "Camera Offline";
-                statusDot.classList.remove('active');
-                btn.classList.replace('bg-red-600', 'bg-gray-700');
+                updateStatus("Camera Offline", "off");
             } else {
-                // Start
                 try {
-                    state.stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: "environment", width: {ideal: 1920} } 
-                    });
+                    state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: {ideal: 1280} } });
                     const vid = document.getElementById('video');
                     vid.srcObject = state.stream;
                     vid.onloadedmetadata = () => {
                         state.isScanning = true;
-                        btn.innerText = "⏹ Stop Cam";
-                        statusText.innerText = "Scanning...";
-                        statusDot.classList.add('active');
-                        btn.classList.replace('bg-gray-700', 'bg-red-600');
-                        
-                        // Fill queue with pending indices
+                        updateStatus("Align Corners", "ready");
                         refillQueue();
                         requestAnimationFrame(scanLoop);
                     };
@@ -301,31 +291,50 @@
         }
 
         function refillQueue() {
-            // Only add indices that are null
             state.queue = state.answers.map((a, i) => a === null ? i : -1).filter(i => i !== -1);
         }
 
-        // --- Core Loop ---
         function scanLoop() {
             if(!state.isScanning) return;
 
-            drawOverlay(); // Always draw UI
-            
-            // AI Processing Hook
-            if(!state.processing && state.queue.length > 0) {
+            // 1. Draw & Check Alignment
+            const aligned = processAlignmentAndOverlay();
+            state.isAligned = aligned;
+
+            // 2. Update Status UI
+            if(aligned) {
+                updateStatus("Scanning...", "active");
+            } else {
+                updateStatus("Align Markers", "ready");
+            }
+
+            // 3. Process OCR if aligned
+            if(aligned && !state.processing && state.queue.length > 0) {
                 processNextInQueue();
             }
 
             requestAnimationFrame(scanLoop);
         }
 
-        // --- Overlay Drawing ---
-        function drawOverlay() {
+        function updateStatus(text, type) {
+            const txt = document.getElementById('scan-status-text');
+            const dot = document.getElementById('status-dot');
+            const badge = document.getElementById('status-badge');
+            
+            if(txt.innerText !== text) txt.innerText = text;
+            dot.className = `indicator-dot ${type}`;
+            
+            if(type === 'active') badge.style.border = "1px solid #4ade80"; // Green border
+            else badge.style.border = "none";
+        }
+
+        // --- Alignment & Overlay ---
+        function processAlignmentAndOverlay() {
             const vid = document.getElementById('video');
             const cvs = document.getElementById('overlay-canvas');
             const ctx = cvs.getContext('2d');
 
-            // Match dimensions
+            // Resize canvas if needed
             if(cvs.width !== vid.clientWidth) {
                 cvs.width = vid.clientWidth;
                 cvs.height = vid.clientHeight;
@@ -335,90 +344,135 @@
             const h = cvs.height;
             ctx.clearRect(0,0,w,h);
 
-            // Layout Calculation (Assume strip fits width with margin)
-            // Aspect Ratio of the strip image provided is roughly 10:2 (5:1)
-            // We center it in the view
-            const margin = 20;
+            // --- Geometry Definitions ---
+            // We want SQUARE cells.
+            // Let's base size on Width.
+            const margin = 30;
             const gridW = w - (margin*2);
-            const gridH = gridW / 5; // 10 cols / 2 rows = 5 ratio
+            const cellW = gridW / 10; // 10 Cols
+            const cellH = cellW;      // FORCE SQUARE
+            const gridH = cellH * 2;  // 2 Rows
+            
             const startX = margin;
             const startY = (h - gridH) / 2;
-            
-            const cellW = gridW / 10;
-            const cellH = gridH / 2;
 
-            // Draw Grid
+            // Marker Positions (Outside the grid)
+            // Based on user image, they are at corners.
+            // Let's define them relative to the grid box.
+            const markerSize = cellW * 0.6; // Relative size
+            const markerOffset = markerSize * 1.2; // Distance from grid corner
+            
+            const anchors = [
+                {x: startX - markerOffset, y: startY - markerOffset}, // TL
+                {x: startX + gridW + markerOffset - markerSize, y: startY - markerOffset}, // TR
+                {x: startX - markerOffset, y: startY + gridH + markerOffset - markerSize}, // BL
+                {x: startX + gridW + markerOffset - markerSize, y: startY + gridH + markerOffset - markerSize} // BR
+            ];
+
+            // --- Alignment Check ---
+            // We check if these anchor regions are DARK in the video feed
+            const alignCtx = document.getElementById('align-canvas').getContext('2d', {willReadFrequently: true});
+            // Map display coords to video source coords
+            const scaleX = vid.videoWidth / w;
+            const scaleY = vid.videoHeight / h;
+            
+            let allAnchorsLocked = true;
+
+            anchors.forEach(anc => {
+                // Draw marker guide on overlay
+                ctx.strokeStyle = state.isAligned ? '#22c55e' : '#ef4444';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(anc.x, anc.y, markerSize, markerSize);
+                
+                // Check brightness
+                // Sample center of the marker box
+                const sampleSize = 10; 
+                const vidX = (anc.x + markerSize/2 - sampleSize/2) * scaleX;
+                const vidY = (anc.y + markerSize/2 - sampleSize/2) * scaleY;
+                
+                try {
+                    const frame = alignCtx.drawImage(vid, vidX, vidY, sampleSize, sampleSize, 0, 0, 1, 1);
+                    const pixel = alignCtx.getImageData(0, 0, 1, 1).data;
+                    const brightness = (pixel[0] + pixel[1] + pixel[2]) / 3;
+                    
+                    // Threshold for "Dark/Black"
+                    // Adjust this based on lighting. < 100 is usually safe for black ink on white paper
+                    const isDark = brightness < 100;
+                    
+                    if(isDark) {
+                        ctx.fillStyle = 'rgba(34, 197, 94, 0.5)'; // Green fill if locked
+                        ctx.fillRect(anc.x, anc.y, markerSize, markerSize);
+                    } else {
+                        allAnchorsLocked = false;
+                    }
+                } catch(e) { allAnchorsLocked = false; }
+            });
+
+            // --- Draw Grid ---
+            if(allAnchorsLocked) {
+                ctx.strokeStyle = '#22c55e'; // Green grid when aligned
+            } else {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // Faint grid when not
+            }
+            
             LAYOUT.forEach((box, i) => {
                 const x = startX + box.c * cellW;
                 const y = startY + box.r * cellH;
                 
+                // Skip drawing if detecting, only highlight processed ones
                 const isScanned = state.answers[i] !== null;
                 const isProcessing = state.processingIdx === i;
 
-                ctx.lineWidth = 2;
-                
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, cellW, cellH);
+
                 if(isScanned) {
-                    // Success State (Green)
-                    ctx.strokeStyle = '#22c55e';
-                    ctx.fillStyle = 'rgba(34, 197, 94, 0.3)';
+                    ctx.fillStyle = 'rgba(34, 197, 94, 0.4)';
                     ctx.fillRect(x, y, cellW, cellH);
-                    ctx.strokeRect(x, y, cellW, cellH);
-                    
-                    // Draw Letter
                     ctx.fillStyle = '#fff';
-                    ctx.font = 'bold 20px Arial';
+                    ctx.font = 'bold 16px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText(state.answers[i], x + cellW/2, y + cellH/1.5);
-                } else if (isProcessing) {
-                    // Active Scan State (Yellow)
-                    ctx.strokeStyle = '#eab308';
-                    ctx.strokeRect(x, y, cellW, cellH);
-                } else {
-                    // Pending State (Red outline)
-                    ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
-                    ctx.strokeRect(x, y, cellW, cellH);
+                    ctx.fillText(state.answers[i], x + cellW/2, y + cellH/1.6);
+                } else if(isProcessing && allAnchorsLocked) {
+                    ctx.strokeStyle = '#eab308'; // Yellow processing ring
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x+2, y+2, cellW-4, cellH-4);
                 }
             });
 
-            // Guide Box
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(startX - 5, startY - 5, gridW + 10, gridH + 10);
+            return allAnchorsLocked;
         }
 
         // --- AI Logic ---
         async function processNextInQueue() {
             if(!state.worker) return;
             
-            // Pick next item
-            // We rotate queue so we don't get stuck on a hard question forever
             const idx = state.queue.shift(); 
             state.processing = true;
-            state.processingIdx = idx; // For visual highlight
+            state.processingIdx = idx;
 
             try {
-                // 1. Extract Image Patch
                 const vid = document.getElementById('video');
                 const workCvs = document.getElementById('worker-canvas');
                 const workCtx = workCvs.getContext('2d');
-                
-                // coordinate math (Video vs Display scaling)
-                // We need to calculate where the box `idx` is on the actual VIDEO frame
                 const dispCvs = document.getElementById('overlay-canvas');
-                const scaleX = vid.videoWidth / dispCvs.width;
-                const scaleY = vid.videoHeight / dispCvs.height;
-
-                // Re-calc layout (dupe code, simple enough)
-                const margin = 20;
-                const gridW = dispCvs.width - (margin*2);
-                const gridH = gridW / 5;
-                const startX = margin;
-                const startY = (dispCvs.height - gridH) / 2;
+                
+                // Dimensions (Re-calced to match drawOverlay)
+                const margin = 30;
+                const w = dispCvs.width;
+                const h = dispCvs.height;
+                const gridW = w - (margin*2);
                 const cellW = gridW / 10;
-                const cellH = gridH / 2;
+                const cellH = cellW; // Square
+                const gridH = cellH * 2;
+                const startX = margin;
+                const startY = (h - gridH) / 2;
+
+                const scaleX = vid.videoWidth / w;
+                const scaleY = vid.videoHeight / h;
 
                 const boxData = LAYOUT[idx];
-                const px = 5; // padding to avoid borders
+                const px = cellW * 0.15; // Crop inside borders
                 
                 const cropX = (startX + boxData.c * cellW + px) * scaleX;
                 const cropY = (startY + boxData.r * cellH + px) * scaleY;
@@ -427,24 +481,22 @@
 
                 workCvs.width = cropW;
                 workCvs.height = cropH;
+                
+                // Pre-processing for OCR (Contrast)
+                workCtx.filter = 'contrast(1.4) grayscale(1)';
                 workCtx.drawImage(vid, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
-                // 2. OCR
                 const res = await state.worker.recognize(workCvs.toDataURL());
                 const char = cleanChar(res.data.text);
 
-                // 3. Validate
                 if(char) {
                     state.answers[idx] = char;
                     renderLiveGrid();
-                    // Do not put back in queue
                 } else {
-                    // Failed, push back to end of queue to try again later
-                    state.queue.push(idx);
+                    state.queue.push(idx); // Retry later
                 }
 
             } catch(e) {
-                console.error("OCR Error", e);
                 state.queue.push(idx);
             }
 
@@ -456,7 +508,7 @@
             const t = text.toUpperCase();
             if(t.includes('A')) return 'A';
             if(t.includes('B') || t.includes('8')) return 'B';
-            if(t.includes('C') || t.includes('(')) return 'C';
+            if(t.includes('C') || t.includes('(') || t.includes('G')) return 'C';
             if(t.includes('D') || t.includes('0') || t.includes('O')) return 'D';
             return null;
         }
@@ -464,14 +516,10 @@
         // --- Save & Stats ---
         function saveStudent() {
             let score = 0;
-            state.answers.forEach((a, i) => {
-                if(a === state.key[i]) score++;
-            });
-
+            state.answers.forEach((a, i) => { if(a === state.key[i]) score++; });
             const sObj = { id: classData.length+1, score };
             classData.push(sObj);
             
-            // Update Stats UI
             document.getElementById('stat-total').innerText = classData.length;
             const avg = classData.reduce((a,b)=>a+b.score,0) / classData.length;
             document.getElementById('stat-avg').innerText = Math.round((avg/TOTAL_Q)*100) + '%';
@@ -479,11 +527,9 @@
             const row = `<tr class="bg-white border-b"><td class="px-4 py-2">#${sObj.id}</td><td class="px-4 py-2">${score}</td><td class="px-4 py-2">${Math.round((score/TOTAL_Q)*100)}%</td></tr>`;
             document.getElementById('stats-list').innerHTML += row;
 
-            // Reset for next
             resetCurrentScan();
             alert(`Saved! Score: ${score}/${TOTAL_Q}`);
         }
-
     </script>
 </body>
 </html>
