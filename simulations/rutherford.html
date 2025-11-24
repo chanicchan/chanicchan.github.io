@@ -345,36 +345,49 @@
             }
 
             update() {
-                let forceX = 0;
-                let forceY = 0;
+                // FIXED: Sub-stepping to prevent energy gain (Overshooting)
+                // We divide one frame into 8 smaller physics steps
+                const STEPS = 8;
+                const dt = 1.0 / STEPS;
 
-                for (let atom of atoms) {
-                    let dx = this.x - atom.x;
-                    let dy = this.y - atom.y;
-                    let distSq = dx*dx + dy*dy;
-                    let dist = Math.sqrt(distSq);
+                for (let s = 0; s < STEPS; s++) {
+                    let forceX = 0;
+                    let forceY = 0;
 
-                    if (MODE === 'rutherford') {
-                        if (dist > 2 && dist < 150) {
-                            let f = RUTH_K / distSq; 
-                            forceX += f * (dx / dist);
-                            forceY += f * (dy / dist);
-                        }
-                    } else {
-                        if (dist < ATOM_RADIUS_PLUM) {
-                            let strength = PLUM_K * (dist / (ATOM_RADIUS_PLUM * ATOM_RADIUS_PLUM)); 
-                            forceX += strength * (dx / dist);
-                            forceY += strength * (dy / dist);
+                    for (let atom of atoms) {
+                        let dx = this.x - atom.x;
+                        let dy = this.y - atom.y;
+                        let distSq = dx*dx + dy*dy;
+                        let dist = Math.sqrt(distSq);
+
+                        if (MODE === 'rutherford') {
+                            // Coulomb Repulsion
+                            // Increased min dist to 5 to prevent mathematical explosions
+                            if (dist > 5 && dist < 200) { 
+                                let f = RUTH_K / distSq; 
+                                forceX += f * (dx / dist);
+                                forceY += f * (dy / dist);
+                            }
+                        } else {
+                            // Plum Pudding
+                            if (dist < ATOM_RADIUS_PLUM) {
+                                let strength = PLUM_K * (dist / (ATOM_RADIUS_PLUM * ATOM_RADIUS_PLUM)); 
+                                forceX += strength * (dx / dist);
+                                forceY += strength * (dy / dist);
+                            }
                         }
                     }
+
+                    // Apply forces over the micro-step duration
+                    this.vx += forceX * dt;
+                    this.vy += forceY * dt;
+
+                    // Move particle over the micro-step duration
+                    this.x += this.vx * dt;
+                    this.y += this.vy * dt;
                 }
 
-                this.vx += forceX;
-                this.vy += forceY;
-
-                this.x += this.vx;
-                this.y += this.vy;
-
+                // Trail History (Record once per frame, not per sub-step)
                 if (this.history.length === 0 || 
                     Math.abs(this.x - this.history[this.history.length-1].x) > 4 ||
                     Math.abs(this.y - this.history[this.history.length-1].y) > 4) {
@@ -382,6 +395,7 @@
                 }
                 if (this.history.length > 40) this.history.shift();
 
+                // Check Backscatter
                 if (MODE === 'rutherford' && !this.deflected) {
                     if (this.vx < 0) {
                         this.deflected = true;
@@ -396,6 +410,7 @@
             }
 
             draw() {
+                // Trail - Blue
                 ctx.beginPath();
                 ctx.strokeStyle = 'rgba(21, 101, 192, 0.3)';
                 ctx.lineWidth = 2;
@@ -406,6 +421,7 @@
                 ctx.lineTo(this.x, this.y);
                 ctx.stroke();
 
+                // Head - Dark Blue
                 ctx.fillStyle = '#1565C0';
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, 2.5, 0, Math.PI*2);
