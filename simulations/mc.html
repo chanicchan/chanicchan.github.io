@@ -179,7 +179,6 @@
         // --- Config ---
         const TOTAL_Q = 15;
         // Layout: 2 Rows, 10 Cols.
-        // Important: We will calculate dimensions to keep cells SQUARE.
         const LAYOUT = [];
         for(let i=0; i<10; i++) LAYOUT.push({id: i+1, r:0, c:i});
         for(let i=0; i<5; i++) LAYOUT.push({id: i+11, r:1, c:i});
@@ -345,22 +344,23 @@
             ctx.clearRect(0,0,w,h);
 
             // --- Geometry Definitions ---
-            // We want SQUARE cells.
-            // Let's base size on Width.
+            // Based on image_657de4.png: Grid is 10 cols wide.
+            // Markers are small squares at the 4 corners outside the grid.
             const margin = 30;
             const gridW = w - (margin*2);
-            const cellW = gridW / 10; // 10 Cols
-            const cellH = cellW;      // FORCE SQUARE
-            const gridH = cellH * 2;  // 2 Rows
+            const cellW = gridW / 10; 
+            const cellH = cellW;      // SQUARE CELLS
+            const gridH = cellH * 2;  
             
             const startX = margin;
             const startY = (h - gridH) / 2;
 
-            // Marker Positions (Outside the grid)
-            // Based on user image, they are at corners.
-            // Let's define them relative to the grid box.
-            const markerSize = cellW * 0.6; // Relative size
-            const markerOffset = markerSize * 1.2; // Distance from grid corner
+            // NEW: Smaller Markers based on file
+            // In image, marker looks ~1/4 to 1/5 of a cell width
+            const markerSize = cellW * 0.20; 
+            
+            // Offset: Placed diagonally outside corners
+            const markerOffset = markerSize * 2; 
             
             const anchors = [
                 {x: startX - markerOffset, y: startY - markerOffset}, // TL
@@ -370,37 +370,35 @@
             ];
 
             // --- Alignment Check ---
-            // We check if these anchor regions are DARK in the video feed
             const alignCtx = document.getElementById('align-canvas').getContext('2d', {willReadFrequently: true});
-            // Map display coords to video source coords
             const scaleX = vid.videoWidth / w;
             const scaleY = vid.videoHeight / h;
             
             let allAnchorsLocked = true;
 
             anchors.forEach(anc => {
-                // Draw marker guide on overlay
+                // Draw marker guide
                 ctx.strokeStyle = state.isAligned ? '#22c55e' : '#ef4444';
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 2;
                 ctx.strokeRect(anc.x, anc.y, markerSize, markerSize);
                 
                 // Check brightness
-                // Sample center of the marker box
-                const sampleSize = 10; 
-                const vidX = (anc.x + markerSize/2 - sampleSize/2) * scaleX;
-                const vidY = (anc.y + markerSize/2 - sampleSize/2) * scaleY;
+                // Sample purely center of the marker box (inner 30%)
+                const sampleW = markerSize * 0.3;
+                const vidX = (anc.x + markerSize/2 - sampleW/2) * scaleX;
+                const vidY = (anc.y + markerSize/2 - sampleW/2) * scaleY;
+                const vidSampleW = sampleW * scaleX;
                 
                 try {
-                    const frame = alignCtx.drawImage(vid, vidX, vidY, sampleSize, sampleSize, 0, 0, 1, 1);
+                    const frame = alignCtx.drawImage(vid, vidX, vidY, vidSampleW, vidSampleW, 0, 0, 1, 1);
                     const pixel = alignCtx.getImageData(0, 0, 1, 1).data;
                     const brightness = (pixel[0] + pixel[1] + pixel[2]) / 3;
                     
-                    // Threshold for "Dark/Black"
-                    // Adjust this based on lighting. < 100 is usually safe for black ink on white paper
-                    const isDark = brightness < 100;
+                    // Threshold for "Dark" (Forgiving < 130 for typical indoor lighting)
+                    const isDark = brightness < 130;
                     
                     if(isDark) {
-                        ctx.fillStyle = 'rgba(34, 197, 94, 0.5)'; // Green fill if locked
+                        ctx.fillStyle = 'rgba(34, 197, 94, 0.5)'; 
                         ctx.fillRect(anc.x, anc.y, markerSize, markerSize);
                     } else {
                         allAnchorsLocked = false;
@@ -419,7 +417,6 @@
                 const x = startX + box.c * cellW;
                 const y = startY + box.r * cellH;
                 
-                // Skip drawing if detecting, only highlight processed ones
                 const isScanned = state.answers[i] !== null;
                 const isProcessing = state.processingIdx === i;
 
