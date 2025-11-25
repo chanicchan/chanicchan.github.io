@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bohr Model Simulation</title>
+    <style>
+        /* MODERN CSS RESET & VARS */
+        :root {
+            --bg-color: #f0fdfa; 
+            --card-bg: #ffffff;
+            --text-main: #334155;
+            --text-light: #64748b;
+            
+            /* Theme Colors */
+            --col-atom: #0d9488;   /* Teal 600 */
+            --col-energy: #d97706; /* Amber 600 */
+            --col-control: #4f46e5; /* Indigo 600 */
+            
+            --primary: #6366f1;
+            --primary-light: #e0e7ff;
+            --nucleus: #ef4444; 
+            --ionize: #f59e0b; 
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        h1 { 
+            color: #0f766e; 
+            margin: 0 0 8px 0; 
+            font-size: 1.75rem; 
+            font-weight: 800; 
+            letter-spacing: -0.025em;
+        } 
+        .subtitle { 
+            font-size: 1rem; 
+            color: var(--text-light); 
+            margin-bottom: 25px; 
+            font-weight: 400;
+        }
+
+        /* LAYOUT */
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 1060px; 
+            max-width: 100%;
+        }
+
+        .top-row {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .canvas-box {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* COLUMNS */
+        .atom-view {
+            flex: 0 0 auto;
+            width: 450px;
+            height: 500px;
+            border-top: 4px solid var(--col-atom);
+        }
+
+        .middle-column {
+            flex: 0 0 auto;
+            width: 340px; 
+            height: 500px; 
+            position: relative;
+            border-top: 4px solid var(--col-energy);
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            overflow: hidden;
+        }
+        
+        .energy-view {
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            flex: 1;
+            min-width: 200px;
+            max-width: 240px;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 0px; 
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            border-top: 4px solid var(--col-control);
+            height: 500px; 
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* SPECTRUM */
+        .spectrum-box {
+            width: 100%;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            box-sizing: border-box;
+        }
+
+        .spectrum-container {
+            width: 100%;
+            background: #0f172a; 
+            height: 70px; 
+            border-radius: 8px;
+            position: relative;
+            margin-top: 10px;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+
+        .spectral-line {
+            position: absolute;
+            top: 0; bottom: 0; width: 3px;
+            background-color: white;
+            opacity: 0.9;
+            box-shadow: 0 0 8px currentColor;
+            mix-blend-mode: screen;
+        }
+
+        /* BUTTONS */
+        #level-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 6px; 
+            overflow-y: auto;
+            overflow-x: hidden; /* FIX: Prevent horizontal scroll on hover */
+            flex: 1;
+            padding-bottom: 5px;
+        }
+
+        .level-btn {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: var(--text-main);
+            padding: 5px 10px; 
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .level-btn:hover { 
+            background: #f1f5f9; 
+            border-color: #cbd5e1;
+            transform: translateX(2px);
+        }
+        .level-btn.active {
+            background: #eef2ff;
+            color: var(--col-control);
+            border-color: var(--col-control);
+            font-weight: 700;
+            box-shadow: 0 0 0 1px var(--col-control);
+        }
+        .level-btn.ionize {
+            color: #b45309;
+            font-weight: 600;
+            background: #fffbeb;
+            border-color: #fcd34d;
+            margin-bottom: 8px;
+        }
+        .level-btn.ionize:hover {
+            background: #fef3c7;
+        }
+
+        /* DATA BOX */
+        .data-box {
+            background: #eff6ff; 
+            border: 1px solid #dbeafe;
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 10px; /* Replaced margin-bottom with top for spacing */
+        }
+        .data-header {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #3b82f6;
+            font-weight: 800;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #dbeafe;
+            padding-bottom: 4px;
+        }
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+            color: #334155;
+        }
+        .data-row span:last-child {
+            font-weight: 600;
+            color: #2563eb;
+        }
+
+        /* TEXT LABELS */
+        .chart-label {
+            position: absolute;
+            bottom: 12px;
+            left: 15px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: rgba(255,255,255,0.8);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        /* FIX: Prevent uppercase transform on mathematical symbols */
+        .chart-label i {
+            text-transform: none;
+            font-family: 'Times New Roman', serif;
+            font-weight: normal;
+            font-size: 1.1em;
+        }
+
+        .spectrum-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #64748b;
+            padding: 0 5px;
+            margin-top: 8px;
+            font-weight: 600;
+            position: relative;
+            height: 20px;
+        }
+        
+        .zone-marker {
+            position: absolute;
+            top: 0; bottom: 0;
+            border-left: 1px dashed #475569;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+        .zone-label {
+            position: absolute;
+            bottom: 5px;
+            font-size: 10px;
+            color: #94a3b8;
+            font-weight: 700;
+            text-transform: uppercase;
+            pointer-events: none;
+        }
+        .spectrum-tick {
+            position: absolute;
+            top: -5px;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+
+        /* CLEAR BUTTON */
+        .clear-btn {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+        .clear-btn:hover {
+            background: #e2e8f0;
+            color: #334155;
+            border-color: #cbd5e1;
+        }
+
+        .photon-flash {
+            position: absolute;
+            top: 15px; 
+            right: 15px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            background: rgba(255,255,255,0.95);
+            padding: 6px 12px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #f1f5f9;
+            color: #333;
+        }
+        
+        @media (max-width: 1100px) {
+            .top-row { justify-content: center; }
+            .main-container { width: 100%; }
+            .middle-column { width: 100%; max-width: 450px; height: 400px; }
+            .controls { width: 100%; max-width: 450px; height: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Bohr Model of Hydrogen</h1>
+    <div class="subtitle">Visualizing Electron Transitions, Energy Levels & Atomic Spectra</div>
+
+    <div class="main-container">
+        
+        <!-- Top Row -->
+        <div class="top-row">
+            
+            <!-- 1. Atom View -->
+            <div class="canvas-box atom-view">
+                <canvas id="atomCanvas" width="450" height="500"></canvas>
+                <div id="photon-msg" class="photon-flash"></div>
+                <div class="chart-label" style="color:var(--col-atom)">Spatial View (<i>r</i> ∝ <i>n</i>²)</div>
+            </div>
+
+            <!-- 2. Middle Column: Energy Diagram Only -->
+            <div class="middle-column">
+                <canvas id="energyCanvas" width="340" height="500"></canvas>
+                <div class="chart-label" style="color:var(--col-energy)">Energy View</div>
+            </div>
+
+            <!-- 3. Controls -->
+            <div class="controls">
+                <h3 style="margin:0 0 8px 0; color:var(--col-control); font-size: 0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Target Level</h3>
+                
+                <div id="level-buttons">
+                    <!-- Buttons generated by JS -->
+                </div>
+
+                <!-- Transition Details (Bottom) -->
+                <div class="data-box">
+                    <div class="data-header">Last Transition</div>
+                    <div class="data-row"><span>Jump</span><span id="data-jump">--</span></div>
+                    <div class="data-row"><span>Energy</span><span id="data-energy">--</span></div>
+                    <div class="data-row"><span>Wavelength</span><span id="data-wave">--</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Row: Full Width Spectrum -->
+        <div class="spectrum-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <h3 style="margin:0; font-size:0.9rem; font-weight:700; color:#475569;">Emission Spectrum (Log Scale)</h3>
+                <button onclick="resetSpectrum()" class="clear-btn">CLEAR</button>
+            </div>
+            
+            <div id="spectrum" class="spectrum-container"></div>
+            <div id="spectrum-ticks" class="spectrum-labels"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Canvases ---
+        const atomCanvas = document.getElementById('atomCanvas');
+        const atomCtx = atomCanvas.getContext('2d');
+        const energyCanvas = document.getElementById('energyCanvas');
+        const energyCtx = energyCanvas.getContext('2d');
+
+        const atomCenterX = atomCanvas.width / 2;
+        const atomCenterY = atomCanvas.height / 2;
+
+        // --- Physics Constants ---
+        const MAX_N = 6;
+        const RYDBERG_EV = 13.6; 
+        const GROUND_STATE_E = -RYDBERG_EV;
+        const ORBIT_SCALE_FACTOR = 5.5; 
+        const BASE_RADIUS = 15; 
+        const MIN_NM = 80;
+        const MAX_NM = 2000; 
+        const LOG_MIN = Math.log10(MIN_NM);
+        const LOG_MAX = Math.log10(MAX_NM);
+
+        // --- Colors ---
+        const COL_PRIMARY = '#6366f1';
+        const COL_NUCLEUS = '#ef4444';
+        const COL_ORBIT = '#cbd5e1';
+        const COL_TEXT = '#64748b';
+        const COL_TEXT_DARK = '#334155';
+
+        // --- State ---
+        let currentN = 1;
+        let electronAngle = 0;
+        let photons = []; 
+        let targetN = 1;
+        let isTransitioning = false;
+        let isBusy = false;
+        let isIonized = false;
+        let transitionProgress = 0;
+        let energyArrow = null; 
+        let onTransitionComplete = null;
+
+        // --- Initialization ---
+        function init() {
+            createButtons();
+            initSpectrumUI();
+            animate();
+        }
+
+        function initSpectrumUI() {
+            const s = document.getElementById('spectrum');
+            const t = document.getElementById('spectrum-ticks');
+            s.innerHTML = '';
+            t.innerHTML = '';
+
+            const getPos = (nm) => ((Math.log10(nm) - LOG_MIN) / (LOG_MAX - LOG_MIN)) * 100;
+            const line400 = getPos(400);
+            const line750 = getPos(750);
+
+            s.innerHTML += `<div class="zone-marker" style="left: ${line400}%"></div>`;
+            s.innerHTML += `<div class="zone-marker" style="left: ${line750}%"></div>`;
+
+            const zones = [
+                { nm: 200, label: 'UV', color: '#a855f7' },
+                { nm: 550, label: 'Visible', color: '#06b6d4' },
+                { nm: 1200, label: 'IR', color: '#f43f5e' }
+            ];
+            
+            zones.forEach(z => {
+               const d = document.createElement('div');
+               d.className = 'zone-label';
+               d.innerText = z.label;
+               d.style.color = z.color;
+               d.style.left = getPos(z.nm) + '%';
+               d.style.transform = 'translateX(-50%)';
+               s.appendChild(d);
+            });
+
+            [100, 400, 700, 1500].forEach(nm => {
+                const pos = getPos(nm);
+                const span = document.createElement('span');
+                span.className = 'spectrum-tick';
+                span.style.left = `${pos}%`;
+                span.innerText = nm;
+                t.appendChild(span);
+            });
+        }
+
+        function createButtons() {
+            const container = document.getElementById('level-buttons');
+            container.innerHTML = '';
+            
+            const ionBtn = document.createElement('div');
+            ionBtn.className = 'level-btn ionize';
+            ionBtn.id = 'btn-ion';
+            ionBtn.onclick = () => triggerIonization();
+            ionBtn.innerHTML = `<span>Ionize (<i>n</i> = ∞)</span><small>0.00 eV</small>`;
+            container.appendChild(ionBtn);
+
+            for (let i = MAX_N; i >= 1; i--) {
+                const energy = -RYDBERG_EV / (i * i);
+                const btn = document.createElement('div');
+                btn.className = `level-btn ${i === 1 ? 'active' : ''}`;
+                btn.id = `btn-n${i}`;
+                btn.onclick = () => triggerTransition(i);
+                btn.innerHTML = `
+                    <span><i>n</i> = ${i}</span>
+                    <small>${energy.toFixed(2)} eV</small>
+                `;
+                container.appendChild(btn);
+            }
+        }
+
+        // --- Logic ---
+        function updateDataBox(n1, n2, energy, wave) {
+            let jumpText = "";
+            if (n2 === Infinity) jumpText = `<i>n</i> = ${n1} → ∞`;
+            else if (n1 === Infinity) jumpText = `∞ → <i>n</i> = ${n2}`;
+            else jumpText = `<i>n</i> = ${n1} → <i>n</i> = ${n2}`;
+
+            document.getElementById('data-jump').innerHTML = jumpText;
+            document.getElementById('data-energy').innerText = energy.toFixed(2) + " eV";
+            document.getElementById('data-wave').innerText = wave.toFixed(0) + " nm";
+        }
+
+        function triggerIonization() {
+            if (isBusy || isTransitioning || isIonized) return;
+            isBusy = true;
+            const initialN = currentN;
+            const deltaE = Math.abs(0 - (-RYDBERG_EV / (initialN * initialN))); 
+            const wavelengthNm = 1240 / deltaE;
+            const color = getWavelengthColor(wavelengthNm);
+            flashMessage(`Ionization!`, color);
+            updateDataBox(initialN, Infinity, deltaE, wavelengthNm);
+            isTransitioning = true; targetN = Infinity;
+            
+            spawnPhoton(true, color, wavelengthNm, () => {
+                startElectronMove(Infinity, () => {
+                    isIonized = true; updateUI(Infinity); isBusy = false;
+                });
+            });
+        }
+
+        function triggerTransition(newN) {
+            if (isBusy || isTransitioning) return;
+            isBusy = true;
+            if (isIonized) {
+                isTransitioning = true; 
+                const finalE = -RYDBERG_EV / (newN * newN);
+                const deltaE = Math.abs(finalE - 0); 
+                const wavelengthNm = 1240 / deltaE;
+                const color = getWavelengthColor(wavelengthNm);
+                flashMessage(`Capture`, color);
+                updateDataBox(Infinity, newN, deltaE, wavelengthNm);
+                targetN = newN;
+                startElectronMove(newN, () => {
+                    isIonized = false; currentN = newN; updateUI(newN);
+                    spawnPhoton(false, color, wavelengthNm);
+                    recordSpectrum(wavelengthNm, color);
+                    isBusy = false;
+                });
+                return;
+            }
+            if (newN === currentN) { isBusy = false; return; }
+
+            const initialN = currentN;
+            const finalN = newN;
+            const deltaE = Math.abs((-RYDBERG_EV / (finalN * finalN)) - (-RYDBERG_EV / (initialN * initialN)));
+            const wavelengthNm = 1240 / deltaE;
+            const color = getWavelengthColor(wavelengthNm);
+            const type = finalN > initialN ? "Absorption" : "Emission";
+            flashMessage(`${type}`, color);
+            updateDataBox(initialN, finalN, deltaE, wavelengthNm);
+            targetN = newN;
+
+            if (type === "Absorption") {
+                spawnPhoton(true, color, wavelengthNm, () => {
+                    startElectronMove(finalN, () => {
+                        currentN = finalN; updateUI(finalN); isBusy = false;
+                    });
+                });
+            } else {
+                startElectronMove(finalN, () => {
+                    currentN = finalN; updateUI(finalN);
+                    spawnPhoton(false, color, wavelengthNm, null);
+                    recordSpectrum(wavelengthNm, color);
+                    isBusy = false;
+                });
+            }
+        }
+
+        function startElectronMove(newLevel, onComplete) {
+            targetN = newLevel;
+            transitionProgress = 0;
+            isTransitioning = true; 
+            onTransitionComplete = onComplete;
+            const startY = getEnergyY(isIonized ? Infinity : currentN);
+            const endY = getEnergyY(newLevel);
+            const color = newLevel < currentN || (isIonized && newLevel !== Infinity) ? '#eab308' : '#6366f1'; 
+            energyArrow = { startY, endY, currentY: startY, color, active: true };
+        }
+
+        function updateUI(n) {
+            document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+            if (n === Infinity) document.getElementById('btn-ion').classList.add('active');
+            else document.getElementById(`btn-n${n}`).classList.add('active');
+        }
+
+        function getOrbitRadius(n) {
+            if (n === Infinity) return 300;
+            return BASE_RADIUS + (n * n * ORBIT_SCALE_FACTOR);
+        }
+
+        function getEnergyY(n) {
+            const h = energyCanvas.height;
+            const padding = 40;
+            const drawingHeight = h - (2 * padding);
+            const positions = { 1: 0.0, 2: 0.55, 3: 0.75, 4: 0.85, 5: 0.90, 6: 0.94, Infinity: 1.0 };
+            let pos = positions[n] !== undefined ? positions[n] : 1.0;
+            return (h - padding) - (pos * drawingHeight);
+        }
+
+        function drawMixedLabel(ctx, symbol, text, x, y, align, color) {
+            ctx.textAlign = align;
+            const italicFont = 'italic 13px system-ui';
+            const normalFont = '13px system-ui';
+            
+            if (align === 'right') {
+                ctx.fillStyle = color || COL_TEXT;
+                ctx.font = normalFont; ctx.fillText(text, x, y);
+            } else {
+                ctx.font = italicFont;
+                const symbolWidth = ctx.measureText(symbol).width;
+                let startX = x;
+                if (align === 'center') startX = x; 
+                ctx.fillStyle = color || COL_TEXT;
+                ctx.font = italicFont; ctx.fillText(symbol, startX, y);
+                ctx.font = normalFont; ctx.fillText(text, startX + symbolWidth, y);
+            }
+        }
+
+        function drawEnergyDiagram() {
+            energyCtx.clearRect(0, 0, energyCanvas.width, energyCanvas.height);
+            const w = energyCanvas.width;
+            energyCtx.lineWidth = 2;
+            
+            for(let i=1; i<=MAX_N; i++) {
+                const y = getEnergyY(i);
+                energyCtx.strokeStyle = COL_ORBIT; 
+                energyCtx.beginPath(); energyCtx.moveTo(20, y); energyCtx.lineTo(w-20, y); energyCtx.stroke();
+                drawMixedLabel(energyCtx, 'n', ` = ${i}`, 25, y - 4, 'left');
+                energyCtx.fillStyle = COL_TEXT; energyCtx.font = '11px system-ui';
+                energyCtx.textAlign = 'right'; energyCtx.fillText(`${(-RYDBERG_EV/(i*i)).toFixed(2)} eV`, w-25, y - 4);
+                energyCtx.textAlign = 'left';
+            }
+
+            const yInf = getEnergyY(Infinity);
+            energyCtx.strokeStyle = '#ea580c'; /* Dark Orange from CSS var */
+            energyCtx.setLineDash([5, 3]);
+            energyCtx.beginPath(); energyCtx.moveTo(20, yInf); energyCtx.lineTo(w-20, yInf); energyCtx.stroke();
+            energyCtx.setLineDash([]);
+            
+            energyCtx.fillStyle = '#ea580c'; /* Dark Orange */
+            energyCtx.textAlign = 'right'; energyCtx.font = '11px system-ui'; energyCtx.fillText("0.00 eV", w-25, yInf - 4);
+            drawMixedLabel(energyCtx, 'n', ' = ∞', 25, yInf - 4, 'left', '#ea580c');
+
+            if (!isIonized || isTransitioning) {
+                let eY;
+                if (isTransitioning && energyArrow) {
+                    const t = transitionProgress;
+                    eY = energyArrow.startY + (energyArrow.endY - energyArrow.startY) * t;
+                } else {
+                    eY = getEnergyY(isIonized ? Infinity : currentN);
+                }
+
+                if (isTransitioning && energyArrow) {
+                    energyCtx.strokeStyle = energyArrow.color;
+                    energyCtx.lineWidth = 3;
+                    energyCtx.beginPath(); energyCtx.moveTo(w/2, energyArrow.startY); energyCtx.lineTo(w/2, eY); energyCtx.stroke();
+                }
+
+                energyCtx.beginPath(); energyCtx.arc(w/2, eY, 6, 0, Math.PI*2);
+                energyCtx.fillStyle = COL_PRIMARY; energyCtx.fill();
+                energyCtx.strokeStyle = '#fff'; energyCtx.lineWidth = 2; energyCtx.stroke();
+            }
+        }
+
+        function drawAtom() {
+            atomCtx.clearRect(0, 0, atomCanvas.width, atomCanvas.height);
+            atomCtx.beginPath(); atomCtx.arc(atomCenterX, atomCenterY, 6, 0, Math.PI * 2);
+            atomCtx.fillStyle = COL_NUCLEUS; atomCtx.fill();
+
+            for (let i = 1; i <= MAX_N; i++) {
+                const r = getOrbitRadius(i);
+                atomCtx.beginPath(); atomCtx.arc(atomCenterX, atomCenterY, r, 0, Math.PI * 2);
+                atomCtx.strokeStyle = (i === currentN && !isTransitioning && !isIonized) ? '#6366f1' : COL_ORBIT;
+                atomCtx.lineWidth = (i === currentN && !isTransitioning && !isIonized) ? 2 : 1;
+                atomCtx.stroke();
+                drawMixedLabel(atomCtx, 'n', ` = ${i}`, atomCenterX + 5, atomCenterY - r - 2, 'left');
+            }
+
+            let r;
+            if (isTransitioning) {
+                const t = transitionProgress < .5 ? 2 * transitionProgress * transitionProgress : -1 + (4 - 2 * transitionProgress) * transitionProgress;
+                let rStart, rEnd;
+                if (isIonized) { rStart = 350; rEnd = getOrbitRadius(targetN); }
+                else if (targetN === Infinity) { rStart = getOrbitRadius(currentN); rEnd = 350; }
+                else { rStart = getOrbitRadius(currentN); rEnd = getOrbitRadius(targetN); }
+                r = rStart + (rEnd - rStart) * t;
+            } else {
+                r = isIonized ? 350 : getOrbitRadius(currentN);
+            }
+
+            const effectiveR = Math.max(r, 10);
+            electronAngle += 50 / Math.pow(effectiveR, 1.5); 
+
+            if (!isIonized || isTransitioning) {
+                const ex = atomCenterX + Math.cos(electronAngle) * r;
+                const ey = atomCenterY + Math.sin(electronAngle) * r;
+                atomCtx.beginPath(); atomCtx.arc(ex, ey, 7, 0, Math.PI * 2);
+                atomCtx.fillStyle = COL_PRIMARY; atomCtx.fill();
+                atomCtx.strokeStyle = 'white'; atomCtx.lineWidth = 2; atomCtx.stroke();
+            }
+            drawPhotons(atomCtx);
+        }
+
+        function drawPhotons(ctx) {
+            for (let i = photons.length - 1; i >= 0; i--) {
+                let p = photons[i];
+                p.progress += 0.015;
+                if (p.progress >= 1) { if (p.onHit) p.onHit(); photons.splice(i, 1); continue; }
+                const currX = p.x + (p.targetX - p.x) * p.progress;
+                const freq = 2000 / p.wavelength; 
+                const amp = 8;
+                const wiggleY = atomCenterY + Math.sin(currX * 0.1 * freq) * amp;
+                ctx.beginPath();
+                for(let w = -15; w < 15; w+=2) {
+                    const wx = currX + w; const wy = atomCenterY + Math.sin(wx * 0.1 * freq) * amp;
+                    if (w === -15) ctx.moveTo(wx, wy); else ctx.lineTo(wx, wy);
+                }
+                ctx.strokeStyle = p.color; ctx.lineWidth = 3; ctx.stroke();
+                ctx.beginPath(); const dir = p.targetX > p.x ? 1 : -1;
+                ctx.arc(currX + (15*dir), wiggleY, 3, 0, Math.PI*2);
+                ctx.fillStyle = p.color; ctx.fill();
+            }
+        }
+
+        function animate() {
+            if (isTransitioning) {
+                transitionProgress += 0.015; 
+                if (transitionProgress >= 1) {
+                    transitionProgress = 1; isTransitioning = false; energyArrow = null;
+                    if (onTransitionComplete) { onTransitionComplete(); onTransitionComplete = null; }
+                }
+            }
+            drawAtom(); drawEnergyDiagram(); requestAnimationFrame(animate);
+        }
+
+        function spawnPhoton(isIncoming, color, wavelength, onHit) {
+            photons.push({
+                x: isIncoming ? 0 : atomCenterX + getOrbitRadius(currentN), 
+                y: atomCenterY,
+                targetX: isIncoming ? atomCenterX : atomCanvas.width, 
+                progress: 0, isIncoming: isIncoming, color: color, wavelength: wavelength, onHit: onHit
+            });
+        }
+
+        function getWavelengthColor(nm) {
+            if (nm < 150) return "#a855f7"; 
+            if (nm < 380) return "#d8b4fe"; 
+            if (nm > 800) return "#f43f5e"; 
+            if (nm < 440) return "#8b5cf6"; 
+            if (nm < 490) return "#3b82f6"; 
+            if (nm < 510) return "#06b6d4"; 
+            if (nm < 580) return "#10b981"; 
+            if (nm < 645) return "#eab308"; 
+            return "#ef4444"; 
+        }
+
+        function recordSpectrum(nm, color) {
+            const val = Math.log10(nm);
+            let percent = ((val - LOG_MIN) / (LOG_MAX - LOG_MIN)) * 100;
+            if(percent < 1) percent = 1; if(percent > 99) percent = 99;
+            const line = document.createElement('div');
+            line.className = 'spectral-line';
+            line.style.left = `${percent}%`;
+            line.style.backgroundColor = color;
+            line.style.boxShadow = `0 0 4px ${color}`; 
+            document.getElementById('spectrum').appendChild(line);
+        }
+
+        function flashMessage(text, color) {
+            const msg = document.getElementById('photon-msg');
+            msg.innerHTML = text; 
+            msg.style.color = color;
+            msg.style.opacity = 1;
+            setTimeout(() => msg.style.opacity = 0, 1500);
+        }
+
+        function resetSpectrum() { initSpectrumUI(); }
+        init();
+    </script>
+</body>
+</html>
