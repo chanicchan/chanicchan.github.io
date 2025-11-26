@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1100, initial-scale=1.0"> <!-- Fixed viewport for desktop feel -->
     <title>Bohr Model Simulation</title>
     <style>
         /* MODERN CSS RESET & VARS */
@@ -33,15 +33,16 @@
             flex-direction: column;
             align-items: center;
             margin: 0;
-            padding: 10px;
+            padding: 20px;
             min-height: 100vh;
             box-sizing: border-box;
+            min-width: 1100px; /* Enforce desktop width */
         }
 
         h1 { 
             color: #0f766e; 
             margin: 0 0 8px 0; 
-            font-size: 1.5rem; 
+            font-size: 1.75rem; 
             font-weight: 800; 
             letter-spacing: -0.025em;
             text-align: center;
@@ -54,23 +55,22 @@
             text-align: center;
         }
 
-        /* RESPONSIVE LAYOUT */
+        /* FIXED LAYOUT - NO RESPONSIVE FLEXING */
         .main-container {
             display: flex;
             flex-direction: column;
             gap: 20px;
-            width: 100%;
-            max-width: 1100px;
+            width: 1060px; 
+            margin: 0 auto;
         }
 
         .top-row {
             display: flex;
             flex-direction: row;
-            justify-content: center;
+            justify-content: space-between;
             align-items: flex-start;
             gap: 20px;
             width: 100%;
-            flex-wrap: wrap; 
         }
 
         .canvas-box {
@@ -80,26 +80,24 @@
             border: 1px solid var(--border);
             position: relative;
             overflow: hidden;
-            /* Explicitly set the logical size for desktop layout */
         }
         
-        /* Make canvases responsive */
         canvas {
             display: block;
-            width: 100%; /* Important for responsiveness */
-            height: auto;
         }
 
         /* COLUMNS */
         .atom-view {
-            flex: 0 0 450px;
-            max-width: 100%; 
+            flex: 0 0 auto;
+            width: 450px;
+            height: 500px;
             border-top: 4px solid var(--col-atom);
         }
 
         .middle-column {
-            flex: 0 0 340px;
-            max-width: 100%; 
+            flex: 0 0 auto;
+            width: 340px; 
+            height: 500px; 
             position: relative;
             border-top: 4px solid var(--col-energy);
             background: var(--card-bg);
@@ -118,7 +116,8 @@
 
         .controls {
             flex: 1;
-            min-width: 220px;
+            min-width: 200px;
+            max-width: 240px;
             background: var(--card-bg);
             padding: 15px;
             border-radius: 16px;
@@ -195,7 +194,6 @@
             transform: translateX(2px);
         }
         
-        /* Active State for Regular Levels */
         .level-btn.active {
             background: #eef2ff;
             color: var(--col-control);
@@ -215,7 +213,6 @@
             background: #fef3c7;
         }
         
-        /* FIXED: Active State for Ionize Button (Orange) */
         .level-btn.ionize.active {
             background: #fff7ed !important;
             color: #c2410c !important;
@@ -345,20 +342,6 @@
             border: 1px solid #f1f5f9;
             color: #333;
         }
-        
-        /* MOBILE BREAKPOINT */
-        @media (max-width: 1050px) {
-            .top-row { flex-direction: column; align-items: center; }
-            .atom-view, .middle-column, .controls {
-                flex: 1 1 auto;
-                width: 100%;
-                max-width: 500px; 
-            }
-            .controls {
-                height: auto;
-                min-height: 300px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -373,7 +356,6 @@
             
             <!-- 1. Atom View -->
             <div class="canvas-box atom-view">
-                <!-- Removed width/height attributes, set in JS for DPI scaling -->
                 <canvas id="atomCanvas"></canvas>
                 <div id="photon-msg" class="photon-flash"></div>
                 <div class="chart-label" style="color:var(--col-atom)">Spatial View (<i>r</i> ∝ <i>n</i>²)</div>
@@ -381,7 +363,6 @@
 
             <!-- 2. Middle Column: Energy Diagram Only -->
             <div class="middle-column">
-                <!-- Removed width/height attributes, set in JS for DPI scaling -->
                 <canvas id="energyCanvas"></canvas>
                 <div class="chart-label" style="color:var(--col-energy)">Energy View</div>
             </div>
@@ -423,7 +404,7 @@
         const energyCanvas = document.getElementById('energyCanvas');
         const energyCtx = energyCanvas.getContext('2d');
 
-        // --- Logical Dimensions (The fixed coordinate space for drawing) ---
+        // --- Logical Dimensions ---
         const ATOM_LOGICAL_W = 450;
         const ATOM_LOGICAL_H = 500;
         const ENERGY_LOGICAL_W = 340;
@@ -466,26 +447,17 @@
         // --- Rendering Fix: High-DPI Scaling ---
         function setCanvasDPI(canvas, ctx, logicalWidth, logicalHeight) {
             const dpr = window.devicePixelRatio || 1;
-
-            // Set the internal (physical) drawing dimensions scaled by DPR
             canvas.width = logicalWidth * dpr;
             canvas.height = logicalHeight * dpr;
-
-            // Set the CSS (logical) dimensions for the browser layout engine
             canvas.style.width = `${logicalWidth}px`;
             canvas.style.height = `${logicalHeight}px`;
-
-            // Scale the context so all drawing commands (which use logical coordinates)
-            // are drawn at the higher physical resolution.
             ctx.scale(dpr, dpr);
         }
 
         // --- Initialization ---
         function init() {
-            // Apply DPI scaling and set logical dimensions
             setCanvasDPI(atomCanvas, atomCtx, ATOM_LOGICAL_W, ATOM_LOGICAL_H);
             setCanvasDPI(energyCanvas, energyCtx, ENERGY_LOGICAL_W, ENERGY_LOGICAL_H);
-
             createButtons();
             initSpectrumUI();
             animate();
@@ -558,8 +530,8 @@
         // --- Logic ---
         function updateDataBox(n1, n2, energy, wave) {
             let jumpText = "";
-            if (n2 === Infinity) jumpText = `<i>n</i> = ${n1} → <i>n</i> = ∞`;
-            else if (n1 === Infinity) jumpText = `<i>n</i> = ∞ → <i>n</i> = ${n2}`;
+            if (n2 === Infinity) jumpText = `<i>n</i> = ${n1} → ∞`;
+            else if (n1 === Infinity) jumpText = `∞ → <i>n</i> = ${n2}`;
             else jumpText = `<i>n</i> = ${n1} → <i>n</i> = ${n2}`;
 
             document.getElementById('data-jump').innerHTML = jumpText;
@@ -576,7 +548,9 @@
             const color = getWavelengthColor(wavelengthNm);
             flashMessage(`Ionization!`, color);
             updateDataBox(initialN, Infinity, deltaE, wavelengthNm);
-            isTransitioning = true; targetN = Infinity;
+            
+            // FIX: Don't set isTransitioning yet. Wait for photon.
+            targetN = Infinity;
             
             spawnPhoton(true, color, wavelengthNm, () => {
                 startElectronMove(Infinity, () => {
@@ -592,48 +566,48 @@
             if (isBusy || isTransitioning) return;
             isBusy = true;
             
-            const initialN = isIonized ? Infinity : currentN;
-            const finalN = newN;
-            
-            let deltaE;
-            if (initialN === Infinity) {
-                // Capture from ionized state
-                deltaE = Math.abs((-RYDBERG_EV / (finalN * finalN)) - 0); 
-            } else {
-                // Regular transition
-                deltaE = Math.abs((-RYDBERG_EV / (finalN * finalN)) - (-RYDBERG_EV / (initialN * initialN)));
+            // CAPTURE (Ionized -> n)
+            if (isIonized) {
+                const finalE = -RYDBERG_EV / (newN * newN);
+                const deltaE = Math.abs(finalE - 0); 
+                const wavelengthNm = 1240 / deltaE;
+                const color = getWavelengthColor(wavelengthNm);
+                flashMessage(`Capture`, color);
+                updateDataBox(Infinity, newN, deltaE, wavelengthNm);
+                targetN = newN;
+                
+                startElectronMove(newN, () => {
+                    isIonized = false; 
+                    currentN = newN; 
+                    updateUI(newN);
+                    spawnPhoton(false, color, wavelengthNm); // Outgoing
+                    recordSpectrum(wavelengthNm, color);
+                    isBusy = false;
+                });
+                return;
             }
-            
-            if (deltaE === 0) { isBusy = false; return; }
 
+            if (newN === currentN) { isBusy = false; return; }
+
+            const initialN = currentN;
+            const finalN = newN;
+            const deltaE = Math.abs((-RYDBERG_EV / (finalN * finalN)) - (-RYDBERG_EV / (initialN * initialN)));
             const wavelengthNm = 1240 / deltaE;
             const color = getWavelengthColor(wavelengthNm);
-            
-            let type;
-            if (initialN === Infinity) {
-                type = "Capture";
-            } else {
-                type = finalN > initialN ? "Absorption" : "Emission";
-            }
-            
+            const type = finalN > initialN ? "Absorption" : "Emission";
             flashMessage(`${type}`, color);
             updateDataBox(initialN, finalN, deltaE, wavelengthNm);
-            targetN = finalN;
+            targetN = newN;
 
-            if (type === "Absorption" || type === "Capture") {
+            if (type === "Absorption") {
                 spawnPhoton(true, color, wavelengthNm, () => {
                     startElectronMove(finalN, () => {
-                        currentN = finalN; 
-                        isIonized = false; // Must be false after capture
-                        updateUI(finalN); 
-                        if (type === "Capture") recordSpectrum(wavelengthNm, color); 
-                        isBusy = false;
+                        currentN = finalN; updateUI(finalN); isBusy = false;
                     });
                 });
-            } else { // Emission
+            } else {
                 startElectronMove(finalN, () => {
-                    currentN = finalN; 
-                    updateUI(finalN);
+                    currentN = finalN; updateUI(finalN);
                     spawnPhoton(false, color, wavelengthNm, null);
                     recordSpectrum(wavelengthNm, color);
                     isBusy = false;
@@ -646,15 +620,9 @@
             transitionProgress = 0;
             isTransitioning = true; 
             onTransitionComplete = onComplete;
-            
-            const startN = isIonized ? Infinity : currentN;
-            const startY = getEnergyY(startN);
+            const startY = getEnergyY(isIonized ? Infinity : currentN);
             const endY = getEnergyY(newLevel);
-            
-            const isAbsorption = newLevel > startN;
-            const isCapture = startN === Infinity && newLevel !== Infinity;
-            const color = (isAbsorption) ? '#6366f1' : '#eab308'; 
-            
+            const color = newLevel < currentN || (isIonized && newLevel !== Infinity) ? '#eab308' : '#6366f1'; 
             energyArrow = { startY, endY, currentY: startY, color, active: true };
         }
 
@@ -665,7 +633,7 @@
         }
 
         function getOrbitRadius(n) {
-            if (n === Infinity) return ATOM_LOGICAL_W / 2; // Fixed large radius for visualization
+            if (n === Infinity) return ATOM_LOGICAL_W / 2; 
             return BASE_RADIUS + (n * n * ORBIT_SCALE_FACTOR);
         }
 
@@ -722,21 +690,24 @@
             energyCtx.textAlign = 'right'; energyCtx.font = '11px system-ui'; energyCtx.fillText("0.00 eV", w-25, yInf - 4);
             drawMixedLabel(energyCtx, 'n', ' = ∞', 25, yInf - 4, 'left', '#ea580c');
 
+            // Draw electron on energy chart
+            // Logic: Draw if NOT ionized, OR if transitioning, OR if Ionized (draw at top)
             let eY;
+            let drawE = true;
+            
             if (isTransitioning && energyArrow) {
                 const t = transitionProgress;
                 eY = energyArrow.startY + (energyArrow.endY - energyArrow.startY) * t;
-            } else {
-                eY = getEnergyY(isIonized ? Infinity : currentN);
-            }
-
-            if (isTransitioning && energyArrow) {
+                
+                // Arrow
                 energyCtx.strokeStyle = energyArrow.color;
                 energyCtx.lineWidth = 3;
                 energyCtx.beginPath(); energyCtx.moveTo(w/2, energyArrow.startY); energyCtx.lineTo(w/2, eY); energyCtx.stroke();
+            } else {
+                if (isIonized) eY = getEnergyY(Infinity);
+                else eY = getEnergyY(currentN);
             }
 
-            // Draw the electron
             energyCtx.beginPath(); energyCtx.arc(w/2, eY, 6, 0, Math.PI*2);
             energyCtx.fillStyle = COL_PRIMARY; energyCtx.fill();
             energyCtx.strokeStyle = '#fff'; energyCtx.lineWidth = 2; energyCtx.stroke();
@@ -761,19 +732,15 @@
                 const t = transitionProgress < .5 ? 2 * transitionProgress * transitionProgress : -1 + (4 - 2 * transitionProgress) * transitionProgress;
                 let rStart, rEnd;
                 
-                // Determine start/end for radius animation
                 const startN = isIonized ? Infinity : currentN;
                 
                 if (startN === Infinity) { 
-                    // Capture: 300 -> Target
-                    rStart = 300; 
+                    rStart = 300; // Fly in from far
                     rEnd = getOrbitRadius(targetN); 
                 } else if (targetN === Infinity) { 
-                    // Ionize: Current -> 300
                     rStart = getOrbitRadius(startN); 
-                    rEnd = 300; 
+                    rEnd = 300; // Fly out
                 } else { 
-                    // Standard
                     rStart = getOrbitRadius(startN); 
                     rEnd = getOrbitRadius(targetN); 
                 }
@@ -786,7 +753,8 @@
             const effectiveR = Math.max(r, 10);
             electronAngle += 50 / Math.pow(effectiveR, 1.5); 
 
-            // Draw Electron - only if NOT ionized OR if it IS transitioning (capture/ionize)
+            // Draw Electron - Show if NOT ionized OR if Transitioning
+            // If ionized and NOT transitioning, electron is gone (flown away)
             if (!isIonized || isTransitioning) {
                 const ex = atomCenterX + Math.cos(electronAngle) * r;
                 const ey = atomCenterY + Math.sin(electronAngle) * r;
