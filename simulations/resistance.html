@@ -122,7 +122,7 @@
 <body>
 
     <div class="header">
-        <h1>I-V Characteristics & Resistance Simulation</h1>
+        <h1><i>I</i>-<i>V</i> Characteristics & Resistance Simulation</h1>
         <p>Explore how length and thickness affect resistance, and practice finding the line of best fit.</p>
     </div>
 
@@ -167,12 +167,12 @@
             </div>
 
             <div class="control-group">
-                <label>Length (L) <span id="lenVal">50 cm</span></label>
+                <label>Length (<i>L</i>) <span id="lenVal">50 cm</span></label>
                 <input type="range" id="lengthSlider" min="10" max="100" value="50">
             </div>
 
             <div class="control-group">
-                <label>Thickness / Area (A) <span id="areaVal">2.0 mm²</span></label>
+                <label>Thickness / Cross-sectional area (<i>A</i>) <span id="areaVal">2.0 mm²</span></label>
                 <input type="range" id="areaSlider" min="0.5" max="5.0" step="0.1" value="2.0">
             </div>
 
@@ -180,14 +180,14 @@
         </div>
 
         <div class="card">
-            <h2>Current-Voltage (I-V) Graph</h2>
+            <h2>Current-Voltage (<i>I</i>-<i>V</i>) Graph</h2>
             <div class="graph-container">
                 <canvas id="ivChart"></canvas>
             </div>
             
             <div class="toggle-container">
                 <input type="checkbox" id="bestFitToggle">
-                <label for="bestFitToggle" style="margin: 0; cursor: pointer;">Show Best Fit Line (Data Science)</label>
+                <label for="bestFitToggle" style="margin: 0; cursor: pointer;">Show best-fit line</label>
             </div>
             <p id="statsDisplay" style="font-size: 0.9rem; margin-top: 10px; font-weight: bold; color: var(--primary); display: none;">
                 Calculated Resistance (1/slope): -- Ω
@@ -255,7 +255,7 @@
                             max: 12
                         },
                         y: {
-                            title: { display: true, text: 'Current (I) in Amps', font: {size: 14, weight: 'bold'} },
+                            title: { display: true, text: 'Current (I)', font: {size: 14, weight: 'bold'} },
                             min: 0,
                             max: 10 // FIXED SCALE as requested
                         }
