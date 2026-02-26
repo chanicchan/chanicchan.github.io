@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resistance & Data Science Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: var(--primary);
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+        
+        .circuit-display {
+            width: 100%;
+            height: 250px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        svg {
+            width: 100%;
+            height: 100%;
+            max-width: 400px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border-radius: 5px;
+            border: 1px solid #cbd5e1;
+            font-size: 1rem;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        
+        .graph-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        .toggle-container {
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #e0f2fe;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>I-V Characteristics & Resistance Simulation</h1>
+        <p>Explore how length and thickness affect resistance, and practice finding the line of best fit.</p>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>Circuit & Material Properties</h2>
+            
+            <div class="circuit-display">
+                <svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+                    <path id="wireLeft" fill="none" stroke="#333" stroke-width="2" />
+                    <path id="wireRight" fill="none" stroke="#333" stroke-width="2" />
+                    <path id="batteryWireLeft" d="M 180 220 L 50 220" fill="none" stroke="#333" stroke-width="2" />
+                    <path id="batteryWireRight" d="M 220 220 L 350 220" fill="none" stroke="#333" stroke-width="2" />
+                    
+                    <path id="voltWireLeft" fill="none" stroke="#ea580c" stroke-width="2" stroke-dasharray="4" />
+                    <path id="voltWireRight" fill="none" stroke="#ea580c" stroke-width="2" stroke-dasharray="4" />
+
+                    <line x1="180" y1="210" x2="180" y2="230" stroke="#333" stroke-width="3" />
+                    <line x1="192" y1="200" x2="192" y2="240" stroke="#333" stroke-width="4" />
+                    <line x1="208" y1="210" x2="208" y2="230" stroke="#333" stroke-width="3" />
+                    <line x1="220" y1="200" x2="220" y2="240" stroke="#333" stroke-width="4" />
+                    <text x="200" y="250" font-family="sans-serif" font-size="12" fill="#64748b" text-anchor="middle">0V - 10V</text>
+
+                    <rect id="wireVisual" x="150" y="145" width="100" height="10" rx="3" fill="#b45309" />
+
+                    <circle cx="50" cy="150" r="18" fill="white" stroke="#0284c7" stroke-width="3" />
+                    <text x="50" y="155" font-family="sans-serif" font-weight="bold" font-size="16" fill="#0284c7" text-anchor="middle">A</text>
+
+                    <circle cx="200" cy="60" r="18" fill="white" stroke="#ea580c" stroke-width="3" />
+                    <text x="200" y="65" font-family="sans-serif" font-weight="bold" font-size="16" fill="#ea580c" text-anchor="middle">V</text>
+                </svg>
+            </div>
+
+            <div class="control-group">
+                <label>Material 
+                    <select id="materialSelect">
+                        <option value="0.5">Copper (Low Resistivity)</option>
+                        <option value="1.5">Iron (Medium Resistivity)</option>
+                        <option value="4.0" selected>Nichrome (High Resistivity)</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label>Length (L) <span id="lenVal">50 cm</span></label>
+                <input type="range" id="lengthSlider" min="10" max="100" value="50">
+            </div>
+
+            <div class="control-group">
+                <label>Thickness / Area (A) <span id="areaVal">2.0 mm²</span></label>
+                <input type="range" id="areaSlider" min="0.5" max="5.0" step="0.1" value="2.0">
+            </div>
+
+            <button id="generateBtn">Generate Experiment Data</button>
+        </div>
+
+        <div class="card">
+            <h2>Current-Voltage (I-V) Graph</h2>
+            <div class="graph-container">
+                <canvas id="ivChart"></canvas>
+            </div>
+            
+            <div class="toggle-container">
+                <input type="checkbox" id="bestFitToggle">
+                <label for="bestFitToggle" style="margin: 0; cursor: pointer;">Show Best Fit Line (Data Science)</label>
+            </div>
+            <p id="statsDisplay" style="font-size: 0.9rem; margin-top: 10px; font-weight: bold; color: var(--primary); display: none;">
+                Calculated Resistance (1/slope): -- Ω
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const lengthSlider = document.getElementById('lengthSlider');
+        const areaSlider = document.getElementById('areaSlider');
+        const materialSelect = document.getElementById('materialSelect');
+        const lenVal = document.getElementById('lenVal');
+        const areaVal = document.getElementById('areaVal');
+        const generateBtn = document.getElementById('generateBtn');
+        const bestFitToggle = document.getElementById('bestFitToggle');
+        const statsDisplay = document.getElementById('statsDisplay');
+
+        // SVG Elements for dynamic drawing
+        const wireVisual = document.getElementById('wireVisual');
+        const wireLeft = document.getElementById('wireLeft');
+        const wireRight = document.getElementById('wireRight');
+        const voltWireLeft = document.getElementById('voltWireLeft');
+        const voltWireRight = document.getElementById('voltWireRight');
+
+        // Chart setup
+        let ivChart;
+        const ctx = document.getElementById('ivChart').getContext('2d');
+
+        function initChart() {
+            ivChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Measured Data Points',
+                            data: [],
+                            backgroundColor: '#ef4444',
+                            borderColor: '#ef4444',
+                            pointStyle: 'cross', // Changed to cross
+                            pointRadius: 6,
+                            borderWidth: 2, // Thickness of the cross lines
+                            pointHoverRadius: 8
+                        },
+                        {
+                            label: 'Line of Best Fit',
+                            data: [],
+                            type: 'line',
+                            borderColor: '#2563eb',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false,
+                            pointRadius: 0,
+                            hidden: true 
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Voltage (V)', font: {size: 14, weight: 'bold'} },
+                            min: 0,
+                            max: 12
+                        },
+                        y: {
+                            title: { display: true, text: 'Current (I) in Amps', font: {size: 14, weight: 'bold'} },
+                            min: 0,
+                            max: 10 // FIXED SCALE as requested
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `V: ${context.parsed.x.toFixed(2)}V, I: ${context.parsed.y.toFixed(2)}A`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function calculateLineOfBestFit(data) {
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            const n = data.length;
+
+            data.forEach(point => {
+                sumX += point.x;
+                sumY += point.y;
+                sumXY += point.x * point.y;
+                sumX2 += point.x * point.x;
+            });
+
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+
+            return { slope, intercept };
+        }
+
+        function updateVisuals() {
+            const length = parseFloat(lengthSlider.value);
+            const area = parseFloat(areaSlider.value);
+            
+            // Update Text
+            lenVal.innerText = `${length} cm`;
+            areaVal.innerText = `${area.toFixed(1)} mm²`;
+
+            // Calculate new visual width and height
+            const W = 50 + (length - 10) * (200 / 90);
+            const H = 4 + (area - 0.5) * (20 / 4.5);
+            
+            const centerX = 200;
+            const centerY = 150;
+            const leftEdge = centerX - W/2;
+            const rightEdge = centerX + W/2;
+
+            // Update Rect attributes
+            wireVisual.setAttribute('width', W);
+            wireVisual.setAttribute('height', H);
+            wireVisual.setAttribute('x', leftEdge);
+            wireVisual.setAttribute('y', centerY - H/2);
+
+            // FIXED: Main Circuit (Ammeter to Left Edge, Right Edge to Battery)
+            // Starts exactly at 220 now instead of 200
+            wireLeft.setAttribute('d', `M 50 220 L 50 150 L ${leftEdge} 150`);
+            wireRight.setAttribute('d', `M ${rightEdge} 150 L 350 150 L 350 220`);
+
+            // Voltmeter Parallel Circuit
+            voltWireLeft.setAttribute('d', `M ${leftEdge} 150 L ${leftEdge} 60 L 182 60`);
+            voltWireRight.setAttribute('d', `M 218 60 L ${rightEdge} 60 L ${rightEdge} 150`);
+
+            // Update color based on material
+            const materialType = materialSelect.options[materialSelect.selectedIndex].text;
+            if(materialType.includes("Copper")) wireVisual.setAttribute('fill', "#b45309");
+            if(materialType.includes("Iron")) wireVisual.setAttribute('fill', "#64748b");
+            if(materialType.includes("Nichrome")) wireVisual.setAttribute('fill', "#94a3b8");
+        }
+
+        function generateData() {
+            const rho = parseFloat(materialSelect.value);
+            const L = parseFloat(lengthSlider.value);
+            const A = parseFloat(areaSlider.value);
+            
+            // Scaled multiplier to fit data nicely into the fixed 0-10A Y-axis range
+            const R = (rho * L / A) * 0.05; 
+            
+            const rawData = [];
+            const voltages = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+            voltages.forEach(V => {
+                let I = V / R;
+                const noise = I * (Math.random() * 0.16 - 0.08); 
+                I += noise;
+                rawData.push({x: V, y: I});
+            });
+
+            const { slope, intercept } = calculateLineOfBestFit(rawData);
+            
+            const bestFitData = [
+                {x: 0, y: intercept},
+                {x: 12, y: slope * 12 + intercept}
+            ];
+
+            ivChart.data.datasets[0].data = rawData;
+            ivChart.data.datasets[1].data = bestFitData;
+            
+            // Removed the dynamic Y-axis scaling code here
+            
+            ivChart.update();
+
+            const experimentalResistance = 1 / slope;
+            statsDisplay.innerText = `Experimental Resistance (1 / slope): ${experimentalResistance.toFixed(2)} Ω`;
+        }
+
+        // Event Listeners
+        lengthSlider.addEventListener('input', updateVisuals);
+        areaSlider.addEventListener('input', updateVisuals);
+        materialSelect.addEventListener('change', updateVisuals);
+        generateBtn.addEventListener('click', generateData);
+        
+        bestFitToggle.addEventListener('change', (e) => {
+            ivChart.data.datasets[1].hidden = !e.target.checked;
+            statsDisplay.style.display = e.target.checked ? 'block' : 'none';
+            ivChart.update();
+        });
+
+        // Initialize
+        initChart();
+        updateVisuals();
+        generateData();
+    </script>
+</body>
+</html>
