@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynamic Equilibrium & Water Potential Lab</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f2f5; padding: 20px; }
+        .lab-bench { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 3px solid #0277bd; }
+        canvas { background: #fff; border: 1px solid #cfd8dc; display: block; border-radius: 4px; }
+        .ui-panel { margin-bottom: 15px; display: flex; flex-direction: column; gap: 15px; width: 800px; }
+        
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .panel { background: #e1f5fe; padding: 12px; border-radius: 8px; color: #01579b; font-size: 0.9em; }
+        .panel-title { font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #b3e5fc; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;}
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .total-row { font-weight: bold; color: #d32f2f; margin-top: 8px; border-top: 2px solid #b3e5fc; padding-top: 4px; }
+
+        .buttons { display: flex; justify-content: center; gap: 10px; }
+        button { padding: 10px 20px; cursor: pointer; background: #0288d1; color: white; border: none; border-radius: 5px; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #0277bd; }
+        button:active { transform: scale(0.98); }
+        .legend { margin-top: 15px; display: flex; gap: 25px; font-size: 0.9em; justify-content: center; font-weight: 500; color: #333; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="lab-bench">
+    <div class="ui-panel">
+        <div class="dashboard">
+            <div class="panel">
+                <div class="panel-title">Left Region</div>
+                <div class="data-row"><span>Free Water Molecules Count:</span> <span id="lFree">0</span></div>
+                <div class="data-row"><span>Solute Potential (&Psi;<sub>s</sub>):</span> <span id="psiS_L">0.00</span></div>
+                <div class="data-row"><span>Hydrostatic Pressure exerted (&Psi;<sub>p</sub>):</span> <span id="psiP_L" style="color:#388e3c">+0.00</span></div>
+                <div class="data-row total-row"><span>Water Potential (&Psi;):</span> <span id="psiT_L">0.00</span></div>
+            </div>
+            <div class="panel">
+                <div class="panel-title">Right Region (Pure Water)</div>
+                <div class="data-row"><span>Free Water Molecules Count:</span> <span id="rFree">0</span></div>
+                <div class="data-row"><span>Solute Potential (&Psi;<sub>s</sub>):</span> <span>0.00</span></div>
+                <div class="data-row"><span>Hydrostatic Pressure exerted (&Psi;<sub>p</sub>):</span> <span id="psiP_R" style="color:#388e3c">+0.00</span></div>
+                <div class="data-row total-row"><span>Water Potential (&Psi;):</span> <span id="psiT_R">0.00</span></div>
+            </div>
+        </div>
+        <div class="buttons">
+            <button id="addSoluteBtn">Add Sucrose (Left)</button>
+            <button id="resetLabBtn" style="background:#546e7a">Reset Lab</button>
+        </div>
+    </div>
+
+    <canvas id="osmosisSim" width="800" height="400"></canvas>
+
+    <div class="legend">
+        <div><span class="dot" style="background: #29b6f6;"></span>Free Water</div>
+        <div><span class="dot" style="background: #ffca28; border: 2px solid #ff8f00"></span>Sucrose</div>
+        <div><span class="dot" style="background: #29b6f6; border: 2px solid #ff8f00"></span>Bound</div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('osmosisSim');
+    const ctx = canvas.getContext('2d');
+    const mid = canvas.width / 2;
+
+    let particles = [];
+    const MAX_SHELL = 6; 
+    const WATER_TOTAL = 200;
+
+    let currentLevelL = 380;
+    let currentLevelR = 380;
+
+    // Physics variables stored globally for the membrane logic
+    let currentPsiT_L = 0;
+    let currentPsiT_R = 0;
+
+    function spawnWater() {
+        particles = []; 
+        for (let i = 0; i < WATER_TOTAL; i++) {
+            const isLeft = i < WATER_TOTAL / 2;
+            const x = isLeft ? Math.random() * (mid - 20) + 10 : Math.random() * (mid - 20) + mid + 10;
+            particles.push({
+                x: x, y: Math.random() * 200 + 150, 
+                vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5,
+                type: 'water', parent: null, offX: 0, offY: 0, r: 4
+            });
+        }
+        currentLevelL = 380 - ((WATER_TOTAL / 2) * 0.8);
+        currentLevelR = 380 - ((WATER_TOTAL / 2) * 0.8);
+    }
+
+    document.getElementById('addSoluteBtn').addEventListener('click', function() {
+        for (let i = 0; i < 4; i++) {
+            particles.push({
+                x: Math.random() * (mid - 60) + 30, y: Math.random() * 100 + 250,
+                vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2,
+                type: 'sucrose', shellCount: 0, r: 14
+            });
+        }
+    });
+
+    document.getElementById('resetLabBtn').addEventListener('click', function() {
+        spawnWater();
+    });
+
+    function update() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const sucroses = particles.filter(p => p.type === 'sucrose');
+        const waters = particles.filter(p => p.type === 'water');
+
+        // 1. Volumes and Target Levels
+        // Sucrose displaces more volume so it pushes the water level up faster
+        let volLeft = waters.filter(w => w.x < mid).length + (sucroses.length * 15);
+        let volRight = waters.filter(w => w.x >= mid).length;
+        
+        let targetLevelL = 380 - (volLeft * 0.8);
+        let targetLevelR = 380 - (volRight * 0.8);
+
+        // Smoothly adjust levels
+        currentLevelL += (targetLevelL - currentLevelL) * 0.03;
+        currentLevelR += (targetLevelR - currentLevelR) * 0.03;
+
+        // 2. MATHEMATICS OF DYNAMIC EQUILIBRIUM
+        let leftBound = waters.filter(w => w.parent).length;
+        
+        // Solute Potential: drops by 0.05 per bound water
+        let psiS_L = leftBound * -0.05;
+        
+        // Pressure Potential: based on the physical height difference of the water
+        // If currentLevelR is a larger number (lower down) than currentLevelL, Left is higher.
+        let levelDiff = currentLevelR - currentLevelL; 
+        
+        let psiP_L = levelDiff > 0 ? levelDiff * 0.015 : 0;
+        let psiP_R = levelDiff < 0 ? -levelDiff * 0.015 : 0;
+
+        currentPsiT_L = psiS_L + psiP_L;
+        currentPsiT_R = 0 + psiP_R; // Right side has no solute
+
+        // Draw Water Level Backgrounds
+        ctx.fillStyle = 'rgba(41, 182, 246, 0.15)'; 
+        ctx.fillRect(0, currentLevelL, mid, canvas.height - currentLevelL);
+        ctx.fillRect(mid, currentLevelR, canvas.width - mid, canvas.height - currentLevelR);
+
+        // Draw Membrane
+        ctx.strokeStyle = '#78909c';
+        ctx.setLineDash([8, 12]); ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(mid, 0); ctx.lineTo(mid, canvas.height); ctx.stroke();
+        ctx.setLineDash([]);
+
+        waters.forEach(w => {
+            // Binding Logic (Left only)
+            if (!w.parent && w.x < mid) {
+                for (let s of sucroses) {
+                    let dx = w.x - s.x; let dy = w.y - s.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 32 && s.shellCount < MAX_SHELL) {
+                        w.parent = s; s.shellCount++;
+                        w.offX = dx; w.offY = dy;
+                        break;
+                    }
+                }
+            }
+
+            if (w.parent) {
+                w.x = w.parent.x + w.offX; w.y = w.parent.y + w.offY;
+            } else {
+                let oldIsLeft = w.x < mid;
+                
+                w.x += w.vx;
+                w.y += w.vy;
+                
+                let newIsLeft = w.x < mid;
+
+                // 3. MEMBRANE CROSSING PROBABILITY (Osmosis Logic)
+                if (oldIsLeft && !newIsLeft) {
+                    // Trying to cross Left -> Right
+                    // If Left Psi is lower than Right Psi, it wants to stay Left.
+                    let crossingChance = Math.max(0.01, 1.0 + (currentPsiT_L - currentPsiT_R));
+                    if (Math.random() > crossingChance) {
+                        w.vx *= -1; w.x = mid - 1; // Bounce back
+                    }
+                } else if (!oldIsLeft && newIsLeft) {
+                    // Trying to cross Right -> Left
+                    // If Left Psi is very negative, water wants to enter!
+                    let crossingChance = Math.max(0.01, 1.0 + (currentPsiT_R - currentPsiT_L));
+                    if (Math.random() > crossingChance) {
+                        w.vx *= -1; w.x = mid + 1; // Bounce back
+                    }
+                }
+
+                let currentCeiling = w.x < mid ? currentLevelL : currentLevelR;
+
+                if (w.y > canvas.height - w.r) { w.y = canvas.height - w.r; w.vy *= -1; }
+                if (w.y < currentCeiling + w.r) { w.y = currentCeiling + w.r; w.vy = Math.abs(w.vy); }
+
+                if (w.x < w.r) { w.vx *= -1; w.x = w.r; }
+                if (w.x > canvas.width - w.r) { w.vx *= -1; w.x = canvas.width - w.r; }
+            }
+            
+            ctx.fillStyle = '#29b6f6';
+            ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, Math.PI * 2); ctx.fill();
+            if (w.parent) { ctx.strokeStyle = '#ff8f00'; ctx.lineWidth = 2; ctx.stroke(); }
+        });
+
+        sucroses.forEach(s => {
+            s.x += s.vx; s.y += s.vy;
+            
+            if (s.y > canvas.height - s.r) { s.y = canvas.height - s.r; s.vy *= -1; }
+            if (s.y < currentLevelL + s.r) { s.y = currentLevelL + s.r; s.vy = Math.abs(s.vy); }
+            
+            if (s.x < s.r) { s.x = s.r; s.vx = Math.abs(s.vx); }
+            if (s.x > mid - s.r - 2) { s.x = mid - s.r - 2; s.vx = -Math.abs(s.vx); }
+            
+            ctx.fillStyle = '#ffca28'; ctx.strokeStyle = '#ff8f00'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        });
+
+        // Update UI
+        document.getElementById('lFree').innerText = waters.filter(w => w.x < mid && !w.parent).length;
+        document.getElementById('rFree').innerText = waters.filter(w => w.x >= mid && !w.parent).length;
+        
+        document.getElementById('psiS_L').innerText = psiS_L.toFixed(2);
+        document.getElementById('psiP_L').innerText = "+" + psiP_L.toFixed(2);
+        document.getElementById('psiT_L').innerText = currentPsiT_L.toFixed(2);
+
+        document.getElementById('psiP_R').innerText = "+" + psiP_R.toFixed(2);
+        document.getElementById('psiT_R').innerText = currentPsiT_R.toFixed(2);
+
+        requestAnimationFrame(update);
+    }
+
+    spawnWater();
+    update();
+</script>
+</body>
+</html>
