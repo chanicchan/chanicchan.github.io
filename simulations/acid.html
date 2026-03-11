@@ -11,19 +11,23 @@
         }
         
         .molecule-unit {
-            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1), left 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease, transform 0.4s ease;
             position: absolute;
+            top: 0;
+            left: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             pointer-events: none;
             width: 20px; 
             height: 20px;
+            will-change: transform, opacity;
+            transition: opacity 0.4s ease;
         }
         
         :root {
             --h-size: 6px;
             --a-size: 10px;
+            --beaker-border: 4px;
         }
 
         .sphere-h-neutral {
@@ -52,7 +56,7 @@
             border-radius: 50%;
             border: 0.5px solid #000000;
             position: absolute;
-            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+            will-change: transform;
         }
 
         .ion-a {
@@ -62,7 +66,7 @@
             border-radius: 50%;
             border: 0.5px solid #000000;
             position: absolute;
-            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+            will-change: transform;
         }
 
         .neutral-view, .ionized-view {
@@ -72,6 +76,18 @@
             justify-content: center;
             width: 100%;
             height: 100%;
+            position: absolute;
+        }
+
+        .slider-label-container {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            margin-top: 4px;
         }
     </style>
 </head>
@@ -79,7 +95,7 @@
     <div class="max-w-5xl mx-auto">
         <header class="bg-white rounded-xl shadow-md p-6 mb-8 border-l-8 border-blue-600">
             <h1 class="text-3xl font-bold text-slate-800">Acid Ionization & Dilution Simulator</h1>
-            <p class="text-slate-600 mt-2">Observe molecules ionizing in-place as you adjust strength (<i>K</i><sub>a</sub>) or concentration.</p>
+            <p class="text-slate-600 mt-2 text-sm md:text-base">Observe molecules ionizing and moving in real-time as you adjust strength (<i>K</i><sub>a</sub>) or concentration.</p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -94,9 +110,10 @@
                     
                     <div id="kaContainer" class="mt-6 hidden">
                         <label class="block text-sm font-medium text-slate-700 mb-1">
-                            Strength of acid (Ionization constant <i>K</i><sub>a</sub>): <span id="kaValueDisplay" class="font-mono text-blue-600">0.0001</span>
+                            <span class="font-bold">Strength of acid</span> (<i>K</i><sub>a</sub>): <span id="kaValueDisplay" class="font-mono text-blue-600">0.0001</span>
                         </label>
                         <input type="range" id="kaSlider" min="-4" max="0" step="0.01" value="-4" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        <div class="slider-label-container"><span>Weak</span><span>Stronger</span></div>
                     </div>
                 </section>
 
@@ -106,21 +123,21 @@
                     
                     <div class="mb-6">
                         <label class="block text-sm font-medium text-slate-700 mb-1">
-                            Molarity (<i>M</i> = <i>n</i>/<i>V</i>): <span id="molarityDisplay" class="font-mono text-blue-600">1.00</span> mol/L
+                            <span class="font-bold">Molarity</span> (<i>M</i>): <span id="molarityDisplay" class="font-mono text-blue-600">1.00</span> mol/L
                         </label>
                         <input type="range" id="molaritySlider" min="0.1" max="5.0" step="0.01" value="1.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                     </div>
 
                     <div class="mb-6">
                         <label class="block text-sm font-medium text-slate-700 mb-1">
-                            Initial Moles (<i>n</i><sub>HA</sub>): <span id="molesDisplay" class="font-mono text-blue-600">1.0</span> mol
+                            <span class="font-bold">Initial Moles</span> (<i>n</i><sub>HA</sub>): <span id="molesDisplay" class="font-mono text-blue-600">1.0</span> mol
                         </label>
                         <input type="range" id="molesSlider" min="1.0" max="5.0" step="0.1" value="1.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                     </div>
                     
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">
-                            Volume (<i>V</i>): <span id="volDisplay" class="font-mono text-blue-600">1.00</span> L
+                            <span class="font-bold">Volume</span> (<i>V</i>): <span id="volDisplay" class="font-mono text-blue-600">1.00</span> L
                         </label>
                         <input type="range" id="volSlider" min="1.0" max="10.0" step="0.1" value="1.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                     </div>
@@ -137,34 +154,25 @@
             <div class="lg:col-span-2 space-y-6">
                 <div class="bg-white rounded-xl shadow-sm p-8 border border-slate-200 flex flex-col md:flex-row items-center gap-8">
                     <div class="flex flex-col items-center">
-                        <div class="relative w-56 h-72 border-x-4 border-b-4 border-slate-300 rounded-b-3xl flex flex-col-reverse beaker-gradient overflow-hidden bg-slate-100 mb-4">
-                            <div id="liquidLevel" class="bg-blue-400/30 w-full transition-all duration-500"></div>
+                        <div id="beakerFrame" class="relative w-56 h-72 border-x-4 border-b-4 border-slate-300 rounded-b-3xl flex flex-col-reverse beaker-gradient overflow-hidden bg-slate-100 mb-4">
+                            <div id="liquidLevel" class="bg-blue-400/30 w-full transition-all duration-300 ease-out"></div>
                             <div id="moleculeCanvas" class="absolute inset-0"></div>
                         </div>
                         
                         <div class="grid grid-cols-2 gap-x-4 gap-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200 text-[9px] font-bold uppercase tracking-wider">
-                            <div class="flex items-center gap-2">
-                                <div class="ion-h !static !relative !transform-none border-black"></div>
-                                <span class="text-slate-700">H<sup>+</sup></span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <div class="ion-a !static !relative !transform-none border-black"></div>
-                                <span class="text-slate-700">A<sup>–</sup></span>
-                            </div>
+                            <div class="flex items-center gap-2"><div class="ion-h !static !relative !transform-none"></div><span>H<sup>+</sup></span></div>
+                            <div class="flex items-center gap-2"><div class="ion-a !static !relative !transform-none"></div><span>A<sup>–</sup></span></div>
                             <div class="flex items-center gap-2 col-span-2 mt-1 pt-1 border-t border-slate-200">
-                                <div class="flex items-center">
-                                    <div class="sphere-h-neutral"></div>
-                                    <div class="sphere-a-neutral"></div>
-                                </div>
-                                <span class="text-slate-700">Neutral HA</span>
+                                <div class="flex items-center"><div class="sphere-h-neutral"></div><div class="sphere-a-neutral"></div></div>
+                                <span>Neutral HA</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="flex-1 w-full space-y-6">
-                        <div class="text-center md:text-left">
+                        <div>
                             <span class="text-sm font-bold text-slate-400 uppercase tracking-widest">pH Level</span>
-                            <div id="phDisplay" class="text-6xl font-black text-blue-600 transition-all">0.00</div>
+                            <div id="phDisplay" class="text-6xl font-black text-blue-600">0.00</div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
@@ -177,7 +185,7 @@
                                 <div id="haDisplay" class="text-lg font-mono text-slate-600">0.0000 M</div>
                             </div>
                             <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 col-span-2 text-center">
-                                <span class="text-xs font-bold text-slate-500 uppercase">Degree of Ionization (<i>&alpha;</i>)</span>
+                                <span class="text-xs font-bold text-slate-500 uppercase">Ionization (<i>&alpha;</i>)</span>
                                 <div id="alphaDisplay" class="text-lg font-mono text-blue-800">100.00%</div>
                             </div>
                         </div>
@@ -193,203 +201,247 @@
         let moles = 1.0;
         let volume = 1.0;
         let molarity = 1.0;
+        let currentAlpha = 1.0;
         
-        const MIN_MOLES = 1.0;
-        const MAX_MOLES = 5.0;
-        const MIN_VOL = 1.0;
-        const MAX_VOL = 10.0;
-
-        const MAX_UNITS = 60; 
-        const particlesPerMole = 8; 
+        let targetLiquidHeight = 10;
+        let displayedLiquidHeight = 10;
+        
+        const MAX_UNITS = 80; 
+        const particlesPerMole = 10; 
         const unitPositions = [];
 
-        const btnStrong = document.getElementById('btnStrong');
-        const btnWeak = document.getElementById('btnWeak');
-        const kaSlider = document.getElementById('kaSlider');
-        const kaValueDisplay = document.getElementById('kaValueDisplay');
-        const equationHeader = document.getElementById('equationHeader');
-        const equationDisplay = document.getElementById('equationDisplay');
-        
-        const molesSlider = document.getElementById('molesSlider');
-        const volSlider = document.getElementById('volSlider');
-        const molaritySlider = document.getElementById('molaritySlider');
-        
-        const molesDisplay = document.getElementById('molesDisplay');
-        const volDisplay = document.getElementById('volDisplay');
-        const molarityDisplay = document.getElementById('molarityDisplay');
-        
-        const phDisplay = document.getElementById('phDisplay');
-        const h3oDisplay = document.getElementById('h3oDisplay');
-        const haDisplay = document.getElementById('haDisplay');
-        const alphaDisplay = document.getElementById('alphaDisplay');
-        const liquidLevel = document.getElementById('liquidLevel');
-        const moleculeCanvas = document.getElementById('moleculeCanvas');
+        const elements = {
+            btnStrong: document.getElementById('btnStrong'),
+            btnWeak: document.getElementById('btnWeak'),
+            kaSlider: document.getElementById('kaSlider'),
+            kaValue: document.getElementById('kaValueDisplay'),
+            kaContainer: document.getElementById('kaContainer'),
+            eqHeader: document.getElementById('equationHeader'),
+            eqDisplay: document.getElementById('equationDisplay'),
+            molesSlider: document.getElementById('molesSlider'),
+            volSlider: document.getElementById('volSlider'),
+            molaritySlider: document.getElementById('molaritySlider'),
+            molesDisplay: document.getElementById('molesDisplay'),
+            volDisplay: document.getElementById('volDisplay'),
+            molarityDisplay: document.getElementById('molarityDisplay'),
+            ph: document.getElementById('phDisplay'),
+            h3o: document.getElementById('h3oDisplay'),
+            ha: document.getElementById('haDisplay'),
+            alpha: document.getElementById('alphaDisplay'),
+            liquid: document.getElementById('liquidLevel'),
+            canvas: document.getElementById('moleculeCanvas'),
+            beaker: document.getElementById('beakerFrame')
+        };
 
         function initPositions() {
-            unitPositions.length = 0;
-            const cols = 6;
-            const rows = 10;
-            const padding = 6;
-            const cellW = (100 - 2 * padding) / cols;
-            const cellH = (100 - 2 * padding) / rows;
-
-            for(let r = 0; r < rows; r++) {
-                for(let c = 0; c < cols; c++) {
-                    const jitterX = Math.random() * cellW;
-                    const jitterY = Math.random() * cellH;
-                    unitPositions.push({
-                        x: padding + (c * cellW) + jitterX,
-                        yFactor: (padding + (r * cellH) + jitterY) / 100
-                    });
-                }
+            for(let i = 0; i < MAX_UNITS; i++) {
+                unitPositions.push({
+                    x: Math.random() * 160 + 20,
+                    y: Math.random() * 100 + 150,
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: (Math.random() - 0.5) * 0.4,
+                    hX: 0, hY: 0,
+                    hVx: (Math.random() - 0.5) * 0.3,
+                    hVy: (Math.random() - 0.5) * 0.3,
+                    aX: 0, aY: 0,
+                    aVx: (Math.random() - 0.5) * 0.3,
+                    aVy: (Math.random() - 0.5) * 0.3,
+                    isIonized: false
+                });
             }
-            unitPositions.sort(() => Math.random() - 0.5);
         }
 
         function createInitialDoms() {
-            moleculeCanvas.innerHTML = '';
+            elements.canvas.innerHTML = '';
             for(let i=0; i < MAX_UNITS; i++) {
                 const el = document.createElement('div');
                 el.id = `unit-${i}`;
-                el.className = `molecule-unit opacity-0 scale-0`;
-                el.style.left = "-100px"; 
+                el.className = `molecule-unit opacity-0`;
                 el.innerHTML = `
-                    <div class="neutral-view absolute">
-                        <div class="sphere-h-neutral"></div>
-                        <div class="sphere-a-neutral"></div>
-                    </div>
-                    <div class="ionized-view absolute" style="opacity: 0;">
-                        <div class="ion-h" style="transform: translateX(0)"></div>
-                        <div class="ion-a" style="transform: translateX(0)"></div>
+                    <div class="neutral-view"><div class="sphere-h-neutral"></div><div class="sphere-a-neutral"></div></div>
+                    <div class="ionized-view" style="opacity: 0;">
+                        <div class="ion-h" id="h-ion-${i}"></div>
+                        <div class="ion-a" id="a-ion-${i}"></div>
                     </div>
                 `;
-                moleculeCanvas.appendChild(el);
+                elements.canvas.appendChild(el);
             }
-        }
-
-        btnStrong.onclick = () => { isStrongAcid = true; updateUI(); };
-        btnWeak.onclick = () => { isStrongAcid = false; updateUI(); };
-        kaSlider.oninput = (e) => { ka = Math.pow(10, parseFloat(e.target.value)); updateUI(); };
-
-        molesSlider.oninput = (e) => { 
-            moles = parseFloat(e.target.value); 
-            molarity = moles / volume;
-            syncSliders();
-            updateUI(); 
-        };
-
-        volSlider.oninput = (e) => { 
-            volume = parseFloat(e.target.value); 
-            molarity = moles / volume;
-            syncSliders();
-            updateUI(); 
-        };
-
-        molaritySlider.oninput = (e) => {
-            let requestedMolarity = parseFloat(e.target.value);
-            let calculatedMoles = requestedMolarity * volume;
-            
-            if (calculatedMoles < MIN_MOLES) {
-                moles = MIN_MOLES;
-                molarity = MIN_MOLES / volume;
-            } else if (calculatedMoles > MAX_MOLES) {
-                moles = MAX_MOLES;
-                molarity = MAX_MOLES / volume;
-            } else {
-                molarity = requestedMolarity;
-                moles = calculatedMoles;
-            }
-            
-            syncSliders();
-            updateUI();
-        }
-
-        function syncSliders() {
-            molesDisplay.textContent = moles.toFixed(1);
-            volDisplay.textContent = volume.toFixed(2);
-            molarityDisplay.textContent = molarity.toFixed(2);
-            
-            molesSlider.value = moles;
-            volSlider.value = volume;
-            molaritySlider.value = molarity;
         }
 
         function updateUI() {
             if (isStrongAcid) {
-                btnStrong.classList.add('bg-blue-600', 'text-white');
-                btnWeak.classList.remove('bg-blue-600', 'text-white');
-                document.getElementById('kaContainer').classList.add('hidden');
-                equationHeader.textContent = "Ionization";
-                equationDisplay.innerHTML = "HA → H<sup>+</sup> + A<sup>–</sup>";
+                elements.btnStrong.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 bg-blue-600 text-white';
+                elements.btnWeak.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 text-blue-600';
+                elements.kaContainer.classList.add('hidden');
+                elements.eqHeader.textContent = "Ionization";
+                elements.eqDisplay.innerHTML = "HA → H<sup>+</sup> + A<sup>–</sup>";
             } else {
-                btnWeak.classList.add('bg-blue-600', 'text-white');
-                btnStrong.classList.remove('bg-blue-600', 'text-white');
-                document.getElementById('kaContainer').classList.remove('hidden');
-                kaValueDisplay.textContent = ka < 0.01 ? ka.toExponential(2) : ka.toFixed(3);
-                equationHeader.textContent = "Equilibrium";
-                equationDisplay.innerHTML = "HA ⇌ H<sup>+</sup> + A<sup>–</sup>";
+                elements.btnWeak.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 bg-blue-600 text-white';
+                elements.btnStrong.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 text-blue-600';
+                elements.kaContainer.classList.remove('hidden');
+                elements.kaValue.textContent = ka.toFixed(4);
+                elements.eqHeader.textContent = "Equilibrium";
+                elements.eqDisplay.innerHTML = "HA ⇌ H<sup>+</sup> + A<sup>–</sup>";
             }
 
             const C = molarity; 
             const h3o = isStrongAcid ? C : ((-ka + Math.sqrt(ka*ka + 4*ka*C)) / 2);
-            const ph = -Math.log10(Math.max(1e-10, h3o));
-            const alpha = C > 0 ? (h3o / C) : 1;
+            currentAlpha = C > 0 ? (h3o / C) : 1;
+            targetLiquidHeight = (volume / 10.0) * 100;
 
-            phDisplay.textContent = ph.toFixed(2);
-            h3oDisplay.textContent = h3o.toFixed(4) + " M";
-            haDisplay.textContent = Math.max(0, C - h3o).toFixed(4) + " M";
-            alphaDisplay.textContent = (alpha * 100).toFixed(2) + "%";
-            
-            const volPercent = (volume / MAX_VOL) * 100;
-            liquidLevel.style.height = volPercent + "%";
+            elements.ph.textContent = (-Math.log10(Math.max(1e-10, h3o))).toFixed(2);
+            elements.h3o.textContent = h3o.toFixed(4) + " M";
+            elements.ha.textContent = Math.max(0, C - h3o).toFixed(4) + " M";
+            elements.alpha.textContent = (currentAlpha * 100).toFixed(2) + "%";
 
-            animateParticles(alpha, volPercent);
+            updateIonizedStates();
         }
 
-        function animateParticles(alpha, liquidHeight) {
+        function updateIonizedStates() {
             const totalUnitsVisible = Math.min(MAX_UNITS, Math.round(moles * particlesPerMole));
-            
             for(let i=0; i < MAX_UNITS; i++) {
                 const el = document.getElementById(`unit-${i}`);
                 if (i < totalUnitsVisible) {
-                    const pos = unitPositions[i];
-                    el.style.left = `calc(${pos.x}% - 10px)`;
-                    const safeBottom = Math.min(pos.yFactor * liquidHeight, liquidHeight - 4);
-                    el.style.bottom = `calc(${safeBottom}% - 10px)`;
-                    el.classList.remove('opacity-0', 'scale-0');
-                    el.classList.add('opacity-100', 'scale-100');
-
-                    const isIonized = (i / totalUnitsVisible) < alpha;
-                    const neutralView = el.querySelector('.neutral-view');
-                    const ionizedView = el.querySelector('.ionized-view');
-                    const hIon = el.querySelector('.ion-h');
-                    const aIon = el.querySelector('.ion-a');
-
-                    if (isIonized) {
-                        el.style.zIndex = "50";
-                        neutralView.style.opacity = '0';
-                        ionizedView.style.opacity = '1';
-                        hIon.style.transform = 'translateX(-7px)';
-                        aIon.style.transform = 'translateX(7px)';
-                    } else {
-                        el.style.zIndex = "10";
-                        neutralView.style.opacity = '1';
-                        ionizedView.style.opacity = '0';
-                        hIon.style.transform = 'translateX(0)';
-                        aIon.style.transform = 'translateX(0)';
-                    }
+                    el.style.opacity = "1";
+                    const ionized = (i / totalUnitsVisible) < currentAlpha;
+                    unitPositions[i].isIonized = ionized;
+                    
+                    el.querySelector('.neutral-view').style.opacity = ionized ? '0' : '1';
+                    el.querySelector('.ionized-view').style.opacity = ionized ? '1' : '0';
+                    el.style.zIndex = ionized ? "20" : "10";
                 } else {
-                    el.classList.add('opacity-0', 'scale-0');
-                    el.style.left = "-100px";
-                    el.style.zIndex = "1";
+                    el.style.opacity = "0";
                 }
             }
         }
 
+        function renderFrame() {
+            const levelSmoothing = 0.1;
+            displayedLiquidHeight += (targetLiquidHeight - displayedLiquidHeight) * levelSmoothing;
+            elements.liquid.style.height = displayedLiquidHeight + "%";
+
+            const totalUnitsVisible = Math.min(MAX_UNITS, Math.round(moles * particlesPerMole));
+            const beakerW = elements.beaker.offsetWidth;
+            const beakerH = elements.beaker.offsetHeight;
+            
+            // Hard physical boundaries (beaker border-width is 4px)
+            const BORDER = 4;
+            const H_RAD = 3; // H+ radius
+            const A_RAD = 5; // A- radius
+            const NEUTRAL_W = 14; // Approximate width of joined HA
+
+            // Dynamic surface boundary
+            const surfaceY = beakerH - (beakerH * (displayedLiquidHeight / 100));
+
+            for(let i=0; i < totalUnitsVisible; i++) {
+                const pos = unitPositions[i];
+                const el = document.getElementById(`unit-${i}`);
+                const hIon = document.getElementById(`h-ion-${i}`);
+                const aIon = document.getElementById(`a-ion-${i}`);
+
+                // 1. Move Parent Molecule
+                pos.x += pos.vx;
+                pos.y += pos.vy;
+
+                // 2. Resolve Molecule/Container Collisions (HA as a unit)
+                // Use a safety margin to prevent clipping
+                if (pos.x < BORDER + 10) { pos.x = BORDER + 10; pos.vx *= -1; }
+                if (pos.x > beakerW - BORDER - 10) { pos.x = beakerW - BORDER - 10; pos.vx *= -1; }
+                if (pos.y < surfaceY + 10) { pos.y = surfaceY + 10; pos.vy *= -1; }
+                if (pos.y > beakerH - BORDER - 10) { pos.y = beakerH - BORDER - 10; pos.vy *= -1; }
+
+                // 3. Move Ions Relative to Parent
+                pos.hX += pos.hVx;
+                pos.hY += pos.hVy;
+                pos.aX += pos.aVx;
+                pos.aY += pos.aVy;
+
+                if (!pos.isIonized) {
+                    // Tether them tightly when neutral
+                    const snap = 0.15;
+                    pos.hX *= (1 - snap); pos.hY *= (1 - snap);
+                    pos.aX *= (1 - snap); pos.aY *= (1 - snap);
+                } else {
+                    // 4. Resolve INDIVIDUAL Ion collisions with the beaker walls
+                    // We calculate where the ion is in global space (pos.x + pos.hX)
+                    // and ensure the EDGE of the ion (global + radius) doesn't hit the beaker
+                    
+                    // H+ Ion Boundaries
+                    let globalHX = pos.x + pos.hX;
+                    let globalHY = pos.y + pos.hY;
+                    
+                    if (globalHX - H_RAD < BORDER) { pos.hX = BORDER + H_RAD - pos.x; pos.hVx *= -1; }
+                    if (globalHX + H_RAD > beakerW - BORDER) { pos.hX = beakerW - BORDER - H_RAD - pos.x; pos.hVx *= -1; }
+                    if (globalHY - H_RAD < surfaceY) { pos.hY = surfaceY + H_RAD - pos.y; pos.hVy *= -1; }
+                    if (globalHY + H_RAD > beakerH - BORDER) { pos.hY = beakerH - BORDER - H_RAD - pos.y; pos.hVy *= -1; }
+
+                    // A- Ion Boundaries
+                    let globalAX = pos.x + pos.aX;
+                    let globalAY = pos.y + pos.aY;
+
+                    if (globalAX - A_RAD < BORDER) { pos.aX = BORDER + A_RAD - pos.x; pos.aVx *= -1; }
+                    if (globalAX + A_RAD > beakerW - BORDER) { pos.aX = beakerW - BORDER - A_RAD - pos.x; pos.aVx *= -1; }
+                    if (globalAY - A_RAD < surfaceY) { pos.aY = surfaceY + A_RAD - pos.y; pos.aVy *= -1; }
+                    if (globalAY + A_RAD > beakerH - BORDER) { pos.aY = beakerH - BORDER - A_RAD - pos.y; pos.aVy *= -1; }
+
+                    // 5. Soft Tether to Parent (keep ions from floating across the whole screen)
+                    const maxSpread = 50;
+                    if (Math.abs(pos.hX) > maxSpread) { pos.hVx *= -1; pos.hX = Math.sign(pos.hX) * maxSpread; }
+                    if (Math.abs(pos.hY) > maxSpread) { pos.hVy *= -1; pos.hY = Math.sign(pos.hY) * maxSpread; }
+                    if (Math.abs(pos.aX) > maxSpread) { pos.aVx *= -1; pos.aX = Math.sign(pos.aX) * maxSpread; }
+                    if (Math.abs(pos.aY) > maxSpread) { pos.aVy *= -1; pos.aY = Math.sign(pos.aY) * maxSpread; }
+                }
+
+                // Apply UI Updates
+                el.style.transform = `translate3d(${pos.x - 10}px, ${pos.y - 10}px, 0)`;
+
+                const neutralHOffset = -4;
+                const neutralAOffset = 4;
+                const finalHX = pos.isIonized ? pos.hX : neutralHOffset;
+                const finalHY = pos.isIonized ? pos.hY : 0;
+                const finalAX = pos.isIonized ? pos.aX : neutralAOffset;
+                const finalAY = pos.isIonized ? pos.aY : 0;
+
+                hIon.style.transform = `translate3d(${finalHX}px, ${finalHY}px, 0)`;
+                aIon.style.transform = `translate3d(${finalAX}px, ${finalAY}px, 0)`;
+            }
+            requestAnimationFrame(renderFrame);
+        }
+
+        elements.btnStrong.onclick = () => { isStrongAcid = true; updateUI(); };
+        elements.btnWeak.onclick = () => { isStrongAcid = false; updateUI(); };
+        elements.kaSlider.oninput = (e) => { ka = Math.pow(10, parseFloat(e.target.value)); updateUI(); };
+        
+        elements.molesSlider.oninput = (e) => { 
+            moles = parseFloat(e.target.value); 
+            molarity = moles / volume;
+            syncSliders(); updateUI(); 
+        };
+        elements.volSlider.oninput = (e) => { 
+            volume = parseFloat(e.target.value); 
+            molarity = moles / volume;
+            syncSliders(); updateUI(); 
+        };
+        elements.molaritySlider.oninput = (e) => {
+            molarity = parseFloat(e.target.value);
+            moles = Math.min(5.0, Math.max(1.0, molarity * volume));
+            molarity = moles / volume;
+            syncSliders(); updateUI();
+        }
+
+        function syncSliders() {
+            elements.molesDisplay.textContent = moles.toFixed(1);
+            elements.volDisplay.textContent = volume.toFixed(2);
+            elements.molarityDisplay.textContent = molarity.toFixed(2);
+            elements.molesSlider.value = moles;
+            elements.volSlider.value = volume;
+            elements.molaritySlider.value = molarity;
+        }
+
         initPositions();
         createInitialDoms();
-        syncSliders();
         updateUI();
+        requestAnimationFrame(renderFrame);
     </script>
 </body>
 </html>
