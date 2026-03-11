@@ -9,23 +9,82 @@
         .beaker-gradient {
             background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(59,130,246,0.2) 100%);
         }
-        /* Smooth transition for both movement and opacity */
-        .molecule {
-            transition: bottom 0.8s ease-out, left 0.8s ease-out, background-color 0.4s ease, opacity 0.4s ease;
+        
+        .molecule-unit {
+            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1), left 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease, transform 0.4s ease;
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            width: 20px; 
+            height: 20px;
+        }
+        
+        :root {
+            --h-size: 6px;
+            --a-size: 10px;
+        }
+
+        .sphere-h-neutral {
+            width: var(--h-size);
+            height: var(--h-size);
+            background-color: #94a3b8;
+            border-radius: 50%;
+            border: 0.5px solid #000000;
+            z-index: 2;
+        }
+        
+        .sphere-a-neutral {
+            width: var(--a-size);
+            height: var(--a-size);
+            background-color: #cbd5e1;
+            border-radius: 50%;
+            border: 0.5px solid #000000;
+            margin-left: -2px;
+            z-index: 1;
+        }
+
+        .ion-h {
+            width: var(--h-size);
+            height: var(--h-size);
+            background-color: #ef4444;
+            border-radius: 50%;
+            border: 0.5px solid #000000;
+            position: absolute;
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+        }
+
+        .ion-a {
+            width: var(--a-size);
+            height: var(--a-size);
+            background-color: #3b82f6;
+            border-radius: 50%;
+            border: 0.5px solid #000000;
+            position: absolute;
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+        }
+
+        .neutral-view, .ionized-view {
+            transition: opacity 0.4s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
         }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8 font-sans">
     <div class="max-w-5xl mx-auto">
-        <!-- Header -->
         <header class="bg-white rounded-xl shadow-md p-6 mb-8 border-l-8 border-blue-600">
-            <h1 class="text-3xl font-bold text-slate-800">Acid Dissociation & Dilution Simulator</h1>
-            <p class="text-slate-600 mt-2">Explore the differences between strong and weak acids, adjust equilibrium constants (K<sub>a</sub>), and observe the effects of dilution on pH.</p>
+            <h1 class="text-3xl font-bold text-slate-800">Acid Ionization & Dilution Simulator</h1>
+            <p class="text-slate-600 mt-2">Observe molecules ionizing in-place as you adjust strength (<i>K</i><sub>a</sub>) or concentration.</p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Controls Panel -->
             <div class="lg:col-span-1 space-y-6">
+                <!-- Step 1: Acid Type -->
                 <section class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
                     <h2 class="text-lg font-semibold mb-4 text-blue-700">1. Select Acid Type</h2>
                     <div class="flex gap-4">
@@ -35,221 +94,301 @@
                     
                     <div id="kaContainer" class="mt-6 hidden">
                         <label class="block text-sm font-medium text-slate-700 mb-1">
-                            Acid Dissociation Constant (K<sub>a</sub>): <span id="kaValueDisplay" class="font-mono text-blue-600">1.8e-5</span>
+                            Strength of acid (Ionization constant <i>K</i><sub>a</sub>): <span id="kaValueDisplay" class="font-mono text-blue-600">0.0001</span>
                         </label>
-                        <input type="range" id="kaSlider" min="-10" max="-1" step="0.1" value="-4.74" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        <input type="range" id="kaSlider" min="-4" max="0" step="0.01" value="-4" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                     </div>
                 </section>
 
+                <!-- Step 2: Concentration Parameters -->
                 <section class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
-                    <h2 class="text-lg font-semibold mb-4 text-blue-700">2. Adjust Concentration</h2>
+                    <h2 class="text-lg font-semibold mb-4 text-blue-700">2. Adjust Solution</h2>
+                    
                     <div class="mb-6">
                         <label class="block text-sm font-medium text-slate-700 mb-1">
-                            Initial Moles of Acid (n<sub>HA</sub>): <span id="molesDisplay" class="font-mono text-blue-600">1.0</span> mol
+                            Molarity (<i>M</i> = <i>n</i>/<i>V</i>): <span id="molarityDisplay" class="font-mono text-blue-600">1.00</span> mol/L
                         </label>
-                        <input type="range" id="molesSlider" min="1.0" max="10.0" step="0.5" value="1.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        <input type="range" id="molaritySlider" min="0.1" max="5.0" step="0.01" value="1.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                     </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Initial Moles (<i>n</i><sub>HA</sub>): <span id="molesDisplay" class="font-mono text-blue-600">1.0</span> mol
+                        </label>
+                        <input type="range" id="molesSlider" min="1.0" max="5.0" step="0.1" value="1.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    </div>
+                    
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">
-                            Volume of Water (V): <span id="volDisplay" class="font-mono text-blue-600">1.00</span> L
+                            Volume (<i>V</i>): <span id="volDisplay" class="font-mono text-blue-600">1.00</span> L
                         </label>
-                        <input type="range" id="volSlider" min="1.0" max="10.0" step="0.5" value="1.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        <input type="range" id="volSlider" min="1.0" max="10.0" step="0.1" value="1.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                     </div>
                 </section>
 
-                <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                    <h3 class="font-bold text-blue-800 text-sm uppercase tracking-wider mb-2 text-center">Current Equilibrium</h3>
-                    <div class="text-center font-mono text-lg bg-white p-3 rounded border border-blue-200 shadow-inner">
-                        HA ⇌ H<sup>+</sup> + A<sup>-</sup>
+                <div class="bg-blue-50 rounded-xl p-4 border border-blue-100 text-center">
+                    <h3 id="equationHeader" class="font-bold text-blue-800 text-xs uppercase tracking-wider mb-2">Ionization</h3>
+                    <div id="equationDisplay" class="font-mono text-lg bg-white p-3 rounded border border-blue-200 shadow-inner">
+                        HA → H<sup>+</sup> + A<sup>–</sup>
                     </div>
                 </div>
             </div>
 
-            <!-- Visualization Panel -->
             <div class="lg:col-span-2 space-y-6">
                 <div class="bg-white rounded-xl shadow-sm p-8 border border-slate-200 flex flex-col md:flex-row items-center gap-8">
-                    <div class="relative w-48 h-64 border-x-4 border-b-4 border-slate-300 rounded-b-3xl flex flex-col-reverse beaker-gradient overflow-hidden bg-slate-100">
-                        <div id="liquidLevel" class="bg-blue-400/30 w-full transition-all duration-500" style="height: 10%;"></div>
-                        <div id="moleculeCanvas" class="absolute inset-0 pointer-events-none"></div>
+                    <div class="flex flex-col items-center">
+                        <div class="relative w-56 h-72 border-x-4 border-b-4 border-slate-300 rounded-b-3xl flex flex-col-reverse beaker-gradient overflow-hidden bg-slate-100 mb-4">
+                            <div id="liquidLevel" class="bg-blue-400/30 w-full transition-all duration-500"></div>
+                            <div id="moleculeCanvas" class="absolute inset-0"></div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200 text-[9px] font-bold uppercase tracking-wider">
+                            <div class="flex items-center gap-2">
+                                <div class="ion-h !static !relative !transform-none border-black"></div>
+                                <span class="text-slate-700">H<sup>+</sup></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="ion-a !static !relative !transform-none border-black"></div>
+                                <span class="text-slate-700">A<sup>–</sup></span>
+                            </div>
+                            <div class="flex items-center gap-2 col-span-2 mt-1 pt-1 border-t border-slate-200">
+                                <div class="flex items-center">
+                                    <div class="sphere-h-neutral"></div>
+                                    <div class="sphere-a-neutral"></div>
+                                </div>
+                                <span class="text-slate-700">Neutral HA</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="flex-1 w-full space-y-6">
                         <div class="text-center md:text-left">
                             <span class="text-sm font-bold text-slate-400 uppercase tracking-widest">pH Level</span>
                             <div id="phDisplay" class="text-6xl font-black text-blue-600 transition-all">0.00</div>
-                            <div id="acidityLabel" class="text-lg font-medium text-slate-500">Strongly Acidic</div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
                                 <span class="text-xs font-bold text-slate-500 uppercase">[H<sup>+</sup>]</span>
-                                <div id="h3oDisplay" class="text-lg font-mono text-red-600">1.000 M</div>
+                                <div id="h3oDisplay" class="text-lg font-mono text-red-600">1.0000 M</div>
                             </div>
                             <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
                                 <span class="text-xs font-bold text-slate-500 uppercase">[HA]</span>
-                                <div id="haDisplay" class="text-lg font-mono text-slate-600">0.000 M</div>
+                                <div id="haDisplay" class="text-lg font-mono text-slate-600">0.0000 M</div>
                             </div>
-                            <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 col-span-2">
-                                <span class="text-xs font-bold text-slate-500 uppercase">Degree of Dissociation (&alpha;)</span>
-                                <div id="alphaDisplay" class="text-lg font-mono text-blue-800">100%</div>
+                            <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 col-span-2 text-center">
+                                <span class="text-xs font-bold text-slate-500 uppercase">Degree of Ionization (<i>&alpha;</i>)</span>
+                                <div id="alphaDisplay" class="text-lg font-mono text-blue-800">100.00%</div>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
-                    <h3 class="text-lg font-bold text-slate-800 mb-3">Teacher's Guide</h3>
-                    <ul class="space-y-2 text-slate-600 text-sm list-disc pl-5">
-                        <li><strong>Expanded Range:</strong> The moles of acid and volume of water can now both be adjusted from 1 to 10.</li>
-                        <li><strong>Concentration Effects:</strong> Note that for a strong acid, if n = 1.0 mol and V = 1.0 L, the pH is 0. If you increase the acid to 10.0 mol in 1.0 L, the pH becomes -1.00.</li>
-                        <li><strong>Visual Scaling:</strong> The beaker's "fill" level now represents 10L as a full container. The particles smoothly adjust their height to remain distributed in the fluid.</li>
-                    </ul>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // State Management
         let isStrongAcid = true;
-        let ka = 1.8e-5;
+        let ka = 0.0001;
         let moles = 1.0;
         let volume = 1.0;
+        let molarity = 1.0;
         
-        const PARTICLE_COUNT = 20; 
-        const particlePositions = [];
+        const MIN_MOLES = 1.0;
+        const MAX_MOLES = 5.0;
+        const MIN_VOL = 1.0;
+        const MAX_VOL = 10.0;
 
-        // UI Elements
+        const MAX_UNITS = 60; 
+        const particlesPerMole = 8; 
+        const unitPositions = [];
+
         const btnStrong = document.getElementById('btnStrong');
         const btnWeak = document.getElementById('btnWeak');
-        const kaContainer = document.getElementById('kaContainer');
         const kaSlider = document.getElementById('kaSlider');
         const kaValueDisplay = document.getElementById('kaValueDisplay');
+        const equationHeader = document.getElementById('equationHeader');
+        const equationDisplay = document.getElementById('equationDisplay');
+        
         const molesSlider = document.getElementById('molesSlider');
-        const molesDisplay = document.getElementById('molesDisplay');
         const volSlider = document.getElementById('volSlider');
+        const molaritySlider = document.getElementById('molaritySlider');
+        
+        const molesDisplay = document.getElementById('molesDisplay');
         const volDisplay = document.getElementById('volDisplay');
+        const molarityDisplay = document.getElementById('molarityDisplay');
         
         const phDisplay = document.getElementById('phDisplay');
         const h3oDisplay = document.getElementById('h3oDisplay');
         const haDisplay = document.getElementById('haDisplay');
         const alphaDisplay = document.getElementById('alphaDisplay');
         const liquidLevel = document.getElementById('liquidLevel');
-        const acidityLabel = document.getElementById('acidityLabel');
         const moleculeCanvas = document.getElementById('moleculeCanvas');
 
         function initPositions() {
-            for(let i=0; i<PARTICLE_COUNT; i++) {
-                particlePositions.push({
-                    x: 10 + (Math.random() * 80),
-                    yOffset: 5 + (Math.random() * 85) 
-                });
+            unitPositions.length = 0;
+            const cols = 6;
+            const rows = 10;
+            const padding = 6;
+            const cellW = (100 - 2 * padding) / cols;
+            const cellH = (100 - 2 * padding) / rows;
+
+            for(let r = 0; r < rows; r++) {
+                for(let c = 0; c < cols; c++) {
+                    const jitterX = Math.random() * cellW;
+                    const jitterY = Math.random() * cellH;
+                    unitPositions.push({
+                        x: padding + (c * cellW) + jitterX,
+                        yFactor: (padding + (r * cellH) + jitterY) / 100
+                    });
+                }
+            }
+            unitPositions.sort(() => Math.random() - 0.5);
+        }
+
+        function createInitialDoms() {
+            moleculeCanvas.innerHTML = '';
+            for(let i=0; i < MAX_UNITS; i++) {
+                const el = document.createElement('div');
+                el.id = `unit-${i}`;
+                el.className = `molecule-unit opacity-0 scale-0`;
+                el.style.left = "-100px"; 
+                el.innerHTML = `
+                    <div class="neutral-view absolute">
+                        <div class="sphere-h-neutral"></div>
+                        <div class="sphere-a-neutral"></div>
+                    </div>
+                    <div class="ionized-view absolute" style="opacity: 0;">
+                        <div class="ion-h" style="transform: translateX(0)"></div>
+                        <div class="ion-a" style="transform: translateX(0)"></div>
+                    </div>
+                `;
+                moleculeCanvas.appendChild(el);
             }
         }
 
         btnStrong.onclick = () => { isStrongAcid = true; updateUI(); };
         btnWeak.onclick = () => { isStrongAcid = false; updateUI(); };
         kaSlider.oninput = (e) => { ka = Math.pow(10, parseFloat(e.target.value)); updateUI(); };
-        molesSlider.oninput = (e) => { moles = parseFloat(e.target.value); updateUI(); };
-        volSlider.oninput = (e) => { volume = parseFloat(e.target.value); updateUI(); };
 
-        function calculateEquilibrium() {
-            const C = moles / volume;
-            let h3o;
+        molesSlider.oninput = (e) => { 
+            moles = parseFloat(e.target.value); 
+            molarity = moles / volume;
+            syncSliders();
+            updateUI(); 
+        };
 
-            if (isStrongAcid) {
-                h3o = C;
+        volSlider.oninput = (e) => { 
+            volume = parseFloat(e.target.value); 
+            molarity = moles / volume;
+            syncSliders();
+            updateUI(); 
+        };
+
+        molaritySlider.oninput = (e) => {
+            let requestedMolarity = parseFloat(e.target.value);
+            let calculatedMoles = requestedMolarity * volume;
+            
+            if (calculatedMoles < MIN_MOLES) {
+                moles = MIN_MOLES;
+                molarity = MIN_MOLES / volume;
+            } else if (calculatedMoles > MAX_MOLES) {
+                moles = MAX_MOLES;
+                molarity = MAX_MOLES / volume;
             } else {
-                // Weak acid equilibrium: x^2 + Ka*x - Ka*C = 0
-                h3o = (-ka + Math.sqrt(Math.pow(ka, 2) + 4 * ka * C)) / 2;
+                molarity = requestedMolarity;
+                moles = calculatedMoles;
             }
-
-            const ha = Math.max(0, C - h3o);
-            // In high school chem, pH can be negative for high concentrations
-            const ph = -Math.log10(Math.max(1e-10, h3o)); 
-            const alpha = C > 0 ? (h3o / C) : 1;
-
-            return {
-                ph: ph.toFixed(2),
-                h3o: h3o.toExponential(3),
-                ha: ha.toExponential(3),
-                alpha: alpha
-            };
+            
+            syncSliders();
+            updateUI();
         }
 
-        function createInitialDoms() {
-            moleculeCanvas.innerHTML = '';
-            for(let i=0; i<PARTICLE_COUNT; i++) {
-                const el = document.createElement('div');
-                el.id = `particle-${i}`;
-                el.className = `absolute molecule text-[8px] font-bold rounded-full shadow-sm flex items-center justify-center w-6 h-6 transition-all duration-700`;
-                moleculeCanvas.appendChild(el);
-            }
+        function syncSliders() {
+            molesDisplay.textContent = moles.toFixed(1);
+            volDisplay.textContent = volume.toFixed(2);
+            molarityDisplay.textContent = molarity.toFixed(2);
+            
+            molesSlider.value = moles;
+            volSlider.value = volume;
+            molaritySlider.value = molarity;
         }
 
         function updateUI() {
             if (isStrongAcid) {
                 btnStrong.classList.add('bg-blue-600', 'text-white');
-                btnStrong.classList.remove('text-blue-600');
                 btnWeak.classList.remove('bg-blue-600', 'text-white');
-                btnWeak.classList.add('text-blue-600');
-                kaContainer.classList.add('hidden');
+                document.getElementById('kaContainer').classList.add('hidden');
+                equationHeader.textContent = "Ionization";
+                equationDisplay.innerHTML = "HA → H<sup>+</sup> + A<sup>–</sup>";
             } else {
                 btnWeak.classList.add('bg-blue-600', 'text-white');
-                btnWeak.classList.remove('text-blue-600');
                 btnStrong.classList.remove('bg-blue-600', 'text-white');
-                btnStrong.classList.add('text-blue-600');
-                kaContainer.classList.remove('hidden');
-                kaValueDisplay.textContent = ka.toExponential(2);
+                document.getElementById('kaContainer').classList.remove('hidden');
+                kaValueDisplay.textContent = ka < 0.01 ? ka.toExponential(2) : ka.toFixed(3);
+                equationHeader.textContent = "Equilibrium";
+                equationDisplay.innerHTML = "HA ⇌ H<sup>+</sup> + A<sup>–</sup>";
             }
 
-            const data = calculateEquilibrium();
+            const C = molarity; 
+            const h3o = isStrongAcid ? C : ((-ka + Math.sqrt(ka*ka + 4*ka*C)) / 2);
+            const ph = -Math.log10(Math.max(1e-10, h3o));
+            const alpha = C > 0 ? (h3o / C) : 1;
 
-            molesDisplay.textContent = moles.toFixed(1);
-            volDisplay.textContent = volume.toFixed(1);
-            phDisplay.textContent = data.ph;
-            h3oDisplay.textContent = data.h3o + " M";
-            haDisplay.textContent = data.ha + " M";
-            alphaDisplay.textContent = (data.alpha * 100).toFixed(1) + "%";
-
-            // Scaling for beaker (10L = 100%)
-            const volPercent = (volume / 10.0) * 100;
+            phDisplay.textContent = ph.toFixed(2);
+            h3oDisplay.textContent = h3o.toFixed(4) + " M";
+            haDisplay.textContent = Math.max(0, C - h3o).toFixed(4) + " M";
+            alphaDisplay.textContent = (alpha * 100).toFixed(2) + "%";
+            
+            const volPercent = (volume / MAX_VOL) * 100;
             liquidLevel.style.height = volPercent + "%";
 
-            if (parseFloat(data.ph) < 1) acidityLabel.textContent = "Extremely Acidic";
-            else if (parseFloat(data.ph) < 3) acidityLabel.textContent = "Strongly Acidic";
-            else if (parseFloat(data.ph) < 5.5) acidityLabel.textContent = "Moderately Acidic";
-            else acidityLabel.textContent = "Weakly Acidic";
-
-            animateParticles(data.alpha, volPercent);
+            animateParticles(alpha, volPercent);
         }
 
         function animateParticles(alpha, liquidHeight) {
-            const countIons = Math.round(PARTICLE_COUNT * alpha);
+            const totalUnitsVisible = Math.min(MAX_UNITS, Math.round(moles * particlesPerMole));
+            
+            for(let i=0; i < MAX_UNITS; i++) {
+                const el = document.getElementById(`unit-${i}`);
+                if (i < totalUnitsVisible) {
+                    const pos = unitPositions[i];
+                    el.style.left = `calc(${pos.x}% - 10px)`;
+                    const safeBottom = Math.min(pos.yFactor * liquidHeight, liquidHeight - 4);
+                    el.style.bottom = `calc(${safeBottom}% - 10px)`;
+                    el.classList.remove('opacity-0', 'scale-0');
+                    el.classList.add('opacity-100', 'scale-100');
 
-            for(let i=0; i<PARTICLE_COUNT; i++) {
-                const el = document.getElementById(`particle-${i}`);
-                if (!el) continue;
+                    const isIonized = (i / totalUnitsVisible) < alpha;
+                    const neutralView = el.querySelector('.neutral-view');
+                    const ionizedView = el.querySelector('.ionized-view');
+                    const hIon = el.querySelector('.ion-h');
+                    const aIon = el.querySelector('.ion-a');
 
-                const pos = particlePositions[i];
-                
-                el.style.left = pos.x + "%";
-                el.style.bottom = (pos.yOffset * (liquidHeight / 100)) + "%";
-
-                if (i < countIons) {
-                    el.innerHTML = 'H<sup>+</sup>';
-                    el.classList.remove('bg-slate-400');
-                    el.classList.add('bg-red-500', 'text-white');
+                    if (isIonized) {
+                        el.style.zIndex = "50";
+                        neutralView.style.opacity = '0';
+                        ionizedView.style.opacity = '1';
+                        hIon.style.transform = 'translateX(-7px)';
+                        aIon.style.transform = 'translateX(7px)';
+                    } else {
+                        el.style.zIndex = "10";
+                        neutralView.style.opacity = '1';
+                        ionizedView.style.opacity = '0';
+                        hIon.style.transform = 'translateX(0)';
+                        aIon.style.transform = 'translateX(0)';
+                    }
                 } else {
-                    el.innerHTML = 'HA';
-                    el.classList.remove('bg-red-500');
-                    el.classList.add('bg-slate-400', 'text-white');
+                    el.classList.add('opacity-0', 'scale-0');
+                    el.style.left = "-100px";
+                    el.style.zIndex = "1";
                 }
             }
         }
 
         initPositions();
         createInitialDoms();
+        syncSliders();
         updateUI();
     </script>
 </body>
