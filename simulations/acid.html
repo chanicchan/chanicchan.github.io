@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High School Chemistry: Acid Strength & Dilution Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .beaker-gradient {
+            background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(59,130,246,0.2) 100%);
+        }
+        /* Smooth transition for both movement and opacity */
+        .molecule {
+            transition: bottom 0.8s ease-out, left 0.8s ease-out, background-color 0.4s ease, opacity 0.4s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8 font-sans">
+    <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <header class="bg-white rounded-xl shadow-md p-6 mb-8 border-l-8 border-blue-600">
+            <h1 class="text-3xl font-bold text-slate-800">Acid Dissociation & Dilution Simulator</h1>
+            <p class="text-slate-600 mt-2">Explore the differences between strong and weak acids, adjust equilibrium constants (K<sub>a</sub>), and observe the effects of dilution on pH.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Controls Panel -->
+            <div class="lg:col-span-1 space-y-6">
+                <section class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+                    <h2 class="text-lg font-semibold mb-4 text-blue-700">1. Select Acid Type</h2>
+                    <div class="flex gap-4">
+                        <button id="btnStrong" class="flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 bg-blue-600 text-white transition-all">Strong Acid</button>
+                        <button id="btnWeak" class="flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 text-blue-600 hover:bg-blue-50 transition-all">Weak Acid</button>
+                    </div>
+                    
+                    <div id="kaContainer" class="mt-6 hidden">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Acid Dissociation Constant (K<sub>a</sub>): <span id="kaValueDisplay" class="font-mono text-blue-600">1.8e-5</span>
+                        </label>
+                        <input type="range" id="kaSlider" min="-10" max="-1" step="0.1" value="-4.74" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    </div>
+                </section>
+
+                <section class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+                    <h2 class="text-lg font-semibold mb-4 text-blue-700">2. Adjust Concentration</h2>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Initial Moles of Acid (n<sub>HA</sub>): <span id="molesDisplay" class="font-mono text-blue-600">1.0</span> mol
+                        </label>
+                        <input type="range" id="molesSlider" min="1.0" max="10.0" step="0.5" value="1.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            Volume of Water (V): <span id="volDisplay" class="font-mono text-blue-600">1.00</span> L
+                        </label>
+                        <input type="range" id="volSlider" min="1.0" max="10.0" step="0.5" value="1.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    </div>
+                </section>
+
+                <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                    <h3 class="font-bold text-blue-800 text-sm uppercase tracking-wider mb-2 text-center">Current Equilibrium</h3>
+                    <div class="text-center font-mono text-lg bg-white p-3 rounded border border-blue-200 shadow-inner">
+                        HA ⇌ H<sup>+</sup> + A<sup>-</sup>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualization Panel -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white rounded-xl shadow-sm p-8 border border-slate-200 flex flex-col md:flex-row items-center gap-8">
+                    <div class="relative w-48 h-64 border-x-4 border-b-4 border-slate-300 rounded-b-3xl flex flex-col-reverse beaker-gradient overflow-hidden bg-slate-100">
+                        <div id="liquidLevel" class="bg-blue-400/30 w-full transition-all duration-500" style="height: 10%;"></div>
+                        <div id="moleculeCanvas" class="absolute inset-0 pointer-events-none"></div>
+                    </div>
+
+                    <div class="flex-1 w-full space-y-6">
+                        <div class="text-center md:text-left">
+                            <span class="text-sm font-bold text-slate-400 uppercase tracking-widest">pH Level</span>
+                            <div id="phDisplay" class="text-6xl font-black text-blue-600 transition-all">0.00</div>
+                            <div id="acidityLabel" class="text-lg font-medium text-slate-500">Strongly Acidic</div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                <span class="text-xs font-bold text-slate-500 uppercase">[H<sup>+</sup>]</span>
+                                <div id="h3oDisplay" class="text-lg font-mono text-red-600">1.000 M</div>
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                <span class="text-xs font-bold text-slate-500 uppercase">[HA]</span>
+                                <div id="haDisplay" class="text-lg font-mono text-slate-600">0.000 M</div>
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 col-span-2">
+                                <span class="text-xs font-bold text-slate-500 uppercase">Degree of Dissociation (&alpha;)</span>
+                                <div id="alphaDisplay" class="text-lg font-mono text-blue-800">100%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
+                    <h3 class="text-lg font-bold text-slate-800 mb-3">Teacher's Guide</h3>
+                    <ul class="space-y-2 text-slate-600 text-sm list-disc pl-5">
+                        <li><strong>Expanded Range:</strong> The moles of acid and volume of water can now both be adjusted from 1 to 10.</li>
+                        <li><strong>Concentration Effects:</strong> Note that for a strong acid, if n = 1.0 mol and V = 1.0 L, the pH is 0. If you increase the acid to 10.0 mol in 1.0 L, the pH becomes -1.00.</li>
+                        <li><strong>Visual Scaling:</strong> The beaker's "fill" level now represents 10L as a full container. The particles smoothly adjust their height to remain distributed in the fluid.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let isStrongAcid = true;
+        let ka = 1.8e-5;
+        let moles = 1.0;
+        let volume = 1.0;
+        
+        const PARTICLE_COUNT = 20; 
+        const particlePositions = [];
+
+        // UI Elements
+        const btnStrong = document.getElementById('btnStrong');
+        const btnWeak = document.getElementById('btnWeak');
+        const kaContainer = document.getElementById('kaContainer');
+        const kaSlider = document.getElementById('kaSlider');
+        const kaValueDisplay = document.getElementById('kaValueDisplay');
+        const molesSlider = document.getElementById('molesSlider');
+        const molesDisplay = document.getElementById('molesDisplay');
+        const volSlider = document.getElementById('volSlider');
+        const volDisplay = document.getElementById('volDisplay');
+        
+        const phDisplay = document.getElementById('phDisplay');
+        const h3oDisplay = document.getElementById('h3oDisplay');
+        const haDisplay = document.getElementById('haDisplay');
+        const alphaDisplay = document.getElementById('alphaDisplay');
+        const liquidLevel = document.getElementById('liquidLevel');
+        const acidityLabel = document.getElementById('acidityLabel');
+        const moleculeCanvas = document.getElementById('moleculeCanvas');
+
+        function initPositions() {
+            for(let i=0; i<PARTICLE_COUNT; i++) {
+                particlePositions.push({
+                    x: 10 + (Math.random() * 80),
+                    yOffset: 5 + (Math.random() * 85) 
+                });
+            }
+        }
+
+        btnStrong.onclick = () => { isStrongAcid = true; updateUI(); };
+        btnWeak.onclick = () => { isStrongAcid = false; updateUI(); };
+        kaSlider.oninput = (e) => { ka = Math.pow(10, parseFloat(e.target.value)); updateUI(); };
+        molesSlider.oninput = (e) => { moles = parseFloat(e.target.value); updateUI(); };
+        volSlider.oninput = (e) => { volume = parseFloat(e.target.value); updateUI(); };
+
+        function calculateEquilibrium() {
+            const C = moles / volume;
+            let h3o;
+
+            if (isStrongAcid) {
+                h3o = C;
+            } else {
+                // Weak acid equilibrium: x^2 + Ka*x - Ka*C = 0
+                h3o = (-ka + Math.sqrt(Math.pow(ka, 2) + 4 * ka * C)) / 2;
+            }
+
+            const ha = Math.max(0, C - h3o);
+            // In high school chem, pH can be negative for high concentrations
+            const ph = -Math.log10(Math.max(1e-10, h3o)); 
+            const alpha = C > 0 ? (h3o / C) : 1;
+
+            return {
+                ph: ph.toFixed(2),
+                h3o: h3o.toExponential(3),
+                ha: ha.toExponential(3),
+                alpha: alpha
+            };
+        }
+
+        function createInitialDoms() {
+            moleculeCanvas.innerHTML = '';
+            for(let i=0; i<PARTICLE_COUNT; i++) {
+                const el = document.createElement('div');
+                el.id = `particle-${i}`;
+                el.className = `absolute molecule text-[8px] font-bold rounded-full shadow-sm flex items-center justify-center w-6 h-6 transition-all duration-700`;
+                moleculeCanvas.appendChild(el);
+            }
+        }
+
+        function updateUI() {
+            if (isStrongAcid) {
+                btnStrong.classList.add('bg-blue-600', 'text-white');
+                btnStrong.classList.remove('text-blue-600');
+                btnWeak.classList.remove('bg-blue-600', 'text-white');
+                btnWeak.classList.add('text-blue-600');
+                kaContainer.classList.add('hidden');
+            } else {
+                btnWeak.classList.add('bg-blue-600', 'text-white');
+                btnWeak.classList.remove('text-blue-600');
+                btnStrong.classList.remove('bg-blue-600', 'text-white');
+                btnStrong.classList.add('text-blue-600');
+                kaContainer.classList.remove('hidden');
+                kaValueDisplay.textContent = ka.toExponential(2);
+            }
+
+            const data = calculateEquilibrium();
+
+            molesDisplay.textContent = moles.toFixed(1);
+            volDisplay.textContent = volume.toFixed(1);
+            phDisplay.textContent = data.ph;
+            h3oDisplay.textContent = data.h3o + " M";
+            haDisplay.textContent = data.ha + " M";
+            alphaDisplay.textContent = (data.alpha * 100).toFixed(1) + "%";
+
+            // Scaling for beaker (10L = 100%)
+            const volPercent = (volume / 10.0) * 100;
+            liquidLevel.style.height = volPercent + "%";
+
+            if (parseFloat(data.ph) < 1) acidityLabel.textContent = "Extremely Acidic";
+            else if (parseFloat(data.ph) < 3) acidityLabel.textContent = "Strongly Acidic";
+            else if (parseFloat(data.ph) < 5.5) acidityLabel.textContent = "Moderately Acidic";
+            else acidityLabel.textContent = "Weakly Acidic";
+
+            animateParticles(data.alpha, volPercent);
+        }
+
+        function animateParticles(alpha, liquidHeight) {
+            const countIons = Math.round(PARTICLE_COUNT * alpha);
+
+            for(let i=0; i<PARTICLE_COUNT; i++) {
+                const el = document.getElementById(`particle-${i}`);
+                if (!el) continue;
+
+                const pos = particlePositions[i];
+                
+                el.style.left = pos.x + "%";
+                el.style.bottom = (pos.yOffset * (liquidHeight / 100)) + "%";
+
+                if (i < countIons) {
+                    el.innerHTML = 'H<sup>+</sup>';
+                    el.classList.remove('bg-slate-400');
+                    el.classList.add('bg-red-500', 'text-white');
+                } else {
+                    el.innerHTML = 'HA';
+                    el.classList.remove('bg-red-500');
+                    el.classList.add('bg-slate-400', 'text-white');
+                }
+            }
+        }
+
+        initPositions();
+        createInitialDoms();
+        updateUI();
+    </script>
+</body>
+</html>
