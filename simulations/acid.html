@@ -18,55 +18,56 @@
             align-items: center;
             justify-content: center;
             pointer-events: none;
-            width: 20px; 
-            height: 20px;
+            width: 32px; 
+            height: 32px;
             will-change: transform, opacity;
             transition: opacity 0.4s ease;
         }
         
         :root {
-            --h-size: 6px;
-            --a-size: 10px;
+            --h-size: 10px;
+            --a-size: 18px;
             --beaker-border: 4px;
         }
 
-        .sphere-h-neutral {
+        /* Unified styling for H and A components to ensure consistency across neutral and ionized states */
+        .sphere-h-base {
             width: var(--h-size);
             height: var(--h-size);
-            background-color: #94a3b8;
             border-radius: 50%;
-            border: 0.5px solid #000000;
+            border: 1px solid #000000;
+        }
+
+        .sphere-a-base {
+            width: var(--a-size);
+            height: var(--a-size);
+            border-radius: 50%;
+            border: 1px solid #000000;
+        }
+
+        .sphere-h-neutral {
+            background-color: #94a3b8;
             z-index: 2;
         }
         
         .sphere-a-neutral {
-            width: var(--a-size);
-            height: var(--a-size);
             background-color: #cbd5e1;
-            border-radius: 50%;
-            border: 0.5px solid #000000;
-            margin-left: -2px;
+            margin-left: -4px;
             z-index: 1;
         }
 
         .ion-h {
-            width: var(--h-size);
-            height: var(--h-size);
             background-color: #ef4444;
-            border-radius: 50%;
-            border: 0.5px solid #000000;
             position: absolute;
             will-change: transform;
+            box-shadow: 0 0 4px rgba(239, 68, 68, 0.4);
         }
 
         .ion-a {
-            width: var(--a-size);
-            height: var(--a-size);
             background-color: #3b82f6;
-            border-radius: 50%;
-            border: 0.5px solid #000000;
             position: absolute;
             will-change: transform;
+            box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
         }
 
         .neutral-view, .ionized-view {
@@ -91,7 +92,7 @@
         }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen p-4 md:p-8 font-sans">
+<body class="bg-slate-50 min-h-screen p-4 md:p-8 font-sans text-slate-900">
     <div class="max-w-5xl mx-auto">
         <header class="bg-white rounded-xl shadow-md p-6 mb-8 border-l-8 border-blue-600">
             <h1 class="text-3xl font-bold text-slate-800">Acid Ionization & Dilution Simulator</h1>
@@ -144,7 +145,7 @@
                 </section>
 
                 <div class="bg-blue-50 rounded-xl p-4 border border-blue-100 text-center">
-                    <h3 id="equationHeader" class="font-bold text-blue-800 text-xs uppercase tracking-wider mb-2">Ionization</h3>
+                    <h3 id="equationHeader" class="font-bold text-blue-800 text-xs uppercase tracking-wider mb-2">Completely Ionize</h3>
                     <div id="equationDisplay" class="font-mono text-lg bg-white p-3 rounded border border-blue-200 shadow-inner">
                         HA → H<sup>+</sup> + A<sup>–</sup>
                     </div>
@@ -154,25 +155,38 @@
             <div class="lg:col-span-2 space-y-6">
                 <div class="bg-white rounded-xl shadow-sm p-8 border border-slate-200 flex flex-col md:flex-row items-center gap-8">
                     <div class="flex flex-col items-center">
-                        <div id="beakerFrame" class="relative w-56 h-72 border-x-4 border-b-4 border-slate-300 rounded-b-3xl flex flex-col-reverse beaker-gradient overflow-hidden bg-slate-100 mb-4">
+                        <div id="beakerFrame" class="relative w-64 h-80 border-x-4 border-b-4 border-slate-300 rounded-b-3xl flex flex-col-reverse beaker-gradient overflow-hidden bg-slate-100 mb-6">
                             <div id="liquidLevel" class="bg-blue-400/30 w-full transition-all duration-300 ease-out"></div>
                             <div id="moleculeCanvas" class="absolute inset-0"></div>
                         </div>
                         
-                        <div class="grid grid-cols-2 gap-x-4 gap-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200 text-[9px] font-bold uppercase tracking-wider">
-                            <div class="flex items-center gap-2"><div class="ion-h !static !relative !transform-none"></div><span>H<sup>+</sup></span></div>
-                            <div class="flex items-center gap-2"><div class="ion-a !static !relative !transform-none"></div><span>A<sup>–</sup></span></div>
-                            <div class="flex items-center gap-2 col-span-2 mt-1 pt-1 border-t border-slate-200">
-                                <div class="flex items-center"><div class="sphere-h-neutral"></div><div class="sphere-a-neutral"></div></div>
-                                <span>Neutral HA</span>
+                        <!-- LEGEND / KEY -->
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-4 bg-slate-100 p-6 rounded-xl border border-slate-300 shadow-sm">
+                            <div class="flex items-center gap-4">
+                                <div class="sphere-h-base ion-h !static !relative !transform-none"></div>
+                                <span class="text-base font-black text-slate-800 tracking-tight">H<sup>+</sup> ion</span>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="sphere-a-base ion-a !static !relative !transform-none"></div>
+                                <span class="text-base font-black text-slate-800 tracking-tight">A<sup>–</sup> ion</span>
+                            </div>
+                            <div class="flex items-center gap-4 col-span-2 mt-2 pt-3 border-t border-slate-300">
+                                <div class="flex items-center">
+                                    <div class="sphere-h-base sphere-h-neutral"></div>
+                                    <div class="sphere-a-base sphere-a-neutral"></div>
+                                </div>
+                                <span class="text-base font-black text-slate-800 tracking-tight">HA</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="flex-1 w-full space-y-6">
                         <div>
-                            <span class="text-sm font-bold text-slate-400 uppercase tracking-widest">pH Level</span>
-                            <div id="phDisplay" class="text-6xl font-black text-blue-600">0.00</div>
+                            <div class="flex items-baseline gap-3 mb-1">
+                                <span class="text-2xl font-bold text-slate-800 tracking-tight">pH level</span>
+                                <span class="text-sm font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">pH = –log[H<sup>+</sup>]</span>
+                            </div>
+                            <div id="phDisplay" class="text-7xl font-black text-blue-700 drop-shadow-sm">0.00</div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
@@ -185,7 +199,7 @@
                                 <div id="haDisplay" class="text-lg font-mono text-slate-600">0.0000 M</div>
                             </div>
                             <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 col-span-2 text-center">
-                                <span class="text-xs font-bold text-slate-500 uppercase">Ionization (<i>&alpha;</i>)</span>
+                                <span class="text-xs font-bold text-slate-500 uppercase">Extent of ionization</span>
                                 <div id="alphaDisplay" class="text-lg font-mono text-blue-800">100.00%</div>
                             </div>
                         </div>
@@ -206,7 +220,7 @@
         let targetLiquidHeight = 10;
         let displayedLiquidHeight = 10;
         
-        const MAX_UNITS = 80; 
+        const MAX_UNITS = 60; 
         const particlesPerMole = 10; 
         const unitPositions = [];
 
@@ -236,16 +250,16 @@
         function initPositions() {
             for(let i = 0; i < MAX_UNITS; i++) {
                 unitPositions.push({
-                    x: Math.random() * 160 + 20,
-                    y: Math.random() * 100 + 150,
-                    vx: (Math.random() - 0.5) * 0.4,
-                    vy: (Math.random() - 0.5) * 0.4,
+                    x: Math.random() * 200 + 20,
+                    y: Math.random() * 150 + 100,
+                    vx: (Math.random() - 0.5) * 0.35,
+                    vy: (Math.random() - 0.5) * 0.35,
                     hX: 0, hY: 0,
-                    hVx: (Math.random() - 0.5) * 0.3,
-                    hVy: (Math.random() - 0.5) * 0.3,
+                    hVx: (Math.random() - 0.5) * 0.25,
+                    hVy: (Math.random() - 0.5) * 0.25,
                     aX: 0, aY: 0,
-                    aVx: (Math.random() - 0.5) * 0.3,
-                    aVy: (Math.random() - 0.5) * 0.3,
+                    aVx: (Math.random() - 0.5) * 0.25,
+                    aVy: (Math.random() - 0.5) * 0.25,
                     isIonized: false
                 });
             }
@@ -258,10 +272,13 @@
                 el.id = `unit-${i}`;
                 el.className = `molecule-unit opacity-0`;
                 el.innerHTML = `
-                    <div class="neutral-view"><div class="sphere-h-neutral"></div><div class="sphere-a-neutral"></div></div>
+                    <div class="neutral-view">
+                        <div class="sphere-h-base sphere-h-neutral"></div>
+                        <div class="sphere-a-base sphere-a-neutral"></div>
+                    </div>
                     <div class="ionized-view" style="opacity: 0;">
-                        <div class="ion-h" id="h-ion-${i}"></div>
-                        <div class="ion-a" id="a-ion-${i}"></div>
+                        <div class="sphere-h-base ion-h" id="h-ion-${i}"></div>
+                        <div class="sphere-a-base ion-a" id="a-ion-${i}"></div>
                     </div>
                 `;
                 elements.canvas.appendChild(el);
@@ -270,17 +287,17 @@
 
         function updateUI() {
             if (isStrongAcid) {
-                elements.btnStrong.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 bg-blue-600 text-white';
-                elements.btnWeak.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 text-blue-600';
+                elements.btnStrong.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 bg-blue-600 text-white shadow-sm';
+                elements.btnWeak.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 text-blue-600 hover:bg-white';
                 elements.kaContainer.classList.add('hidden');
-                elements.eqHeader.textContent = "Ionization";
+                elements.eqHeader.textContent = "Completely Ionize";
                 elements.eqDisplay.innerHTML = "HA → H<sup>+</sup> + A<sup>–</sup>";
             } else {
-                elements.btnWeak.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 bg-blue-600 text-white';
-                elements.btnStrong.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 text-blue-600';
+                elements.btnWeak.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 bg-blue-600 text-white shadow-sm';
+                elements.btnStrong.className = 'flex-1 py-2 px-4 rounded-lg font-medium border-2 border-blue-600 text-blue-600 hover:bg-white';
                 elements.kaContainer.classList.remove('hidden');
                 elements.kaValue.textContent = ka.toFixed(4);
-                elements.eqHeader.textContent = "Equilibrium";
+                elements.eqHeader.textContent = "Partially Ionize";
                 elements.eqDisplay.innerHTML = "HA ⇌ H<sup>+</sup> + A<sup>–</sup>";
             }
 
@@ -324,13 +341,10 @@
             const beakerW = elements.beaker.offsetWidth;
             const beakerH = elements.beaker.offsetHeight;
             
-            // Hard physical boundaries (beaker border-width is 4px)
             const BORDER = 4;
-            const H_RAD = 3; // H+ radius
-            const A_RAD = 5; // A- radius
-            const NEUTRAL_W = 14; // Approximate width of joined HA
+            const H_RAD = 5; 
+            const A_RAD = 9; 
 
-            // Dynamic surface boundary
             const surfaceY = beakerH - (beakerH * (displayedLiquidHeight / 100));
 
             for(let i=0; i < totalUnitsVisible; i++) {
@@ -339,34 +353,24 @@
                 const hIon = document.getElementById(`h-ion-${i}`);
                 const aIon = document.getElementById(`a-ion-${i}`);
 
-                // 1. Move Parent Molecule
                 pos.x += pos.vx;
                 pos.y += pos.vy;
 
-                // 2. Resolve Molecule/Container Collisions (HA as a unit)
-                // Use a safety margin to prevent clipping
-                if (pos.x < BORDER + 10) { pos.x = BORDER + 10; pos.vx *= -1; }
-                if (pos.x > beakerW - BORDER - 10) { pos.x = beakerW - BORDER - 10; pos.vx *= -1; }
-                if (pos.y < surfaceY + 10) { pos.y = surfaceY + 10; pos.vy *= -1; }
-                if (pos.y > beakerH - BORDER - 10) { pos.y = beakerH - BORDER - 10; pos.vy *= -1; }
+                if (pos.x < BORDER + 15) { pos.x = BORDER + 15; pos.vx *= -1; }
+                if (pos.x > beakerW - BORDER - 15) { pos.x = beakerW - BORDER - 15; pos.vx *= -1; }
+                if (pos.y < surfaceY + 15) { pos.y = surfaceY + 15; pos.vy *= -1; }
+                if (pos.y > beakerH - BORDER - 15) { pos.y = beakerH - BORDER - 15; pos.vy *= -1; }
 
-                // 3. Move Ions Relative to Parent
                 pos.hX += pos.hVx;
                 pos.hY += pos.hVy;
                 pos.aX += pos.aVx;
                 pos.aY += pos.aVy;
 
                 if (!pos.isIonized) {
-                    // Tether them tightly when neutral
                     const snap = 0.15;
                     pos.hX *= (1 - snap); pos.hY *= (1 - snap);
                     pos.aX *= (1 - snap); pos.aY *= (1 - snap);
                 } else {
-                    // 4. Resolve INDIVIDUAL Ion collisions with the beaker walls
-                    // We calculate where the ion is in global space (pos.x + pos.hX)
-                    // and ensure the EDGE of the ion (global + radius) doesn't hit the beaker
-                    
-                    // H+ Ion Boundaries
                     let globalHX = pos.x + pos.hX;
                     let globalHY = pos.y + pos.hY;
                     
@@ -375,7 +379,6 @@
                     if (globalHY - H_RAD < surfaceY) { pos.hY = surfaceY + H_RAD - pos.y; pos.hVy *= -1; }
                     if (globalHY + H_RAD > beakerH - BORDER) { pos.hY = beakerH - BORDER - H_RAD - pos.y; pos.hVy *= -1; }
 
-                    // A- Ion Boundaries
                     let globalAX = pos.x + pos.aX;
                     let globalAY = pos.y + pos.aY;
 
@@ -384,19 +387,17 @@
                     if (globalAY - A_RAD < surfaceY) { pos.aY = surfaceY + A_RAD - pos.y; pos.aVy *= -1; }
                     if (globalAY + A_RAD > beakerH - BORDER) { pos.aY = beakerH - BORDER - A_RAD - pos.y; pos.aVy *= -1; }
 
-                    // 5. Soft Tether to Parent (keep ions from floating across the whole screen)
-                    const maxSpread = 50;
+                    const maxSpread = 60;
                     if (Math.abs(pos.hX) > maxSpread) { pos.hVx *= -1; pos.hX = Math.sign(pos.hX) * maxSpread; }
-                    if (Math.abs(pos.hY) > maxSpread) { pos.hVy *= -1; pos.hY = Math.sign(pos.hY) * maxSpread; }
+                    if (Math.abs(pos.hY) > maxSpread) { pos.hY = Math.sign(pos.hY) * maxSpread; pos.hVy *= -1; }
                     if (Math.abs(pos.aX) > maxSpread) { pos.aVx *= -1; pos.aX = Math.sign(pos.aX) * maxSpread; }
-                    if (Math.abs(pos.aY) > maxSpread) { pos.aVy *= -1; pos.aY = Math.sign(pos.aY) * maxSpread; }
+                    if (Math.abs(pos.aY) > maxSpread) { pos.aY = Math.sign(pos.aY) * maxSpread; pos.aVy *= -1; }
                 }
 
-                // Apply UI Updates
-                el.style.transform = `translate3d(${pos.x - 10}px, ${pos.y - 10}px, 0)`;
+                el.style.transform = `translate3d(${pos.x - 16}px, ${pos.y - 16}px, 0)`;
 
-                const neutralHOffset = -4;
-                const neutralAOffset = 4;
+                const neutralHOffset = -6;
+                const neutralAOffset = 6;
                 const finalHX = pos.isIonized ? pos.hX : neutralHOffset;
                 const finalHY = pos.isIonized ? pos.hY : 0;
                 const finalAX = pos.isIonized ? pos.aX : neutralAOffset;
