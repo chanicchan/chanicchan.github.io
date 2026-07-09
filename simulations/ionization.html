@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chamber Ionization Simulator</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom styles for the range slider handles to match the aesthetics */
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border: none;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #1d4ed8;
+    }
+    input[type="range"]::-moz-range-thumb:hover {
+      background: #1d4ed8;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen bg-slate-50 text-slate-800 flex flex-col font-sans overflow-hidden select-none">
+
+  <!-- Top Banner & Title -->
+  <header class="flex-none bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-sm z-10">
+    <div>
+      <h1 class="text-xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">
+        Chamber Ionization Simulator
+      </h1>
+      <p class="text-[11px] text-slate-400 font-semibold tracking-wide uppercase mt-0.5">
+        Demonstrating Specific Ionization & Coulomb Dwell-Time Mechanics
+      </p>
+    </div>
+    
+    <!-- Clean Live Status badges -->
+    <div class="flex gap-4 items-center">
+      <div class="bg-slate-100 border border-slate-200 px-3 py-1 rounded-lg text-xs font-semibold text-slate-600">
+        Dwell Factor: <strong id="dwellFactor" class="text-indigo-600 font-mono">1.0x</strong>
+      </div>
+      <div class="bg-slate-100 border border-slate-200 px-3 py-1 rounded-lg text-xs font-semibold text-slate-600">
+        Ionizations: <strong id="ionizationCount" class="text-red-500 font-mono">0</strong>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Large Simulation Chamber -->
+  <div class="flex-1 relative bg-slate-100 overflow-hidden" id="canvasContainer">
+    <canvas id="chamberCanvas" class="w-full h-full block"></canvas>
+
+    <!-- Legend Overlay: Clean and simple float card -->
+    <div class="absolute top-4 right-4 bg-white/90 backdrop-blur border border-slate-200/80 rounded-xl p-4 shadow-md max-w-sm pointer-events-none space-y-3 z-10">
+      <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chamber Legend</div>
+      
+      <div class="space-y-2">
+        <div class="flex items-center gap-3">
+          <span class="flex space-x-1">
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
+          </span>
+          <span class="text-xs font-medium text-slate-600">Neutral Gas Molecules</span>
+        </div>
+        
+        <div class="flex items-center gap-3">
+          <span class="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center text-[8px] font-bold text-white shadow-sm shadow-red-200">+</span>
+          <span class="text-xs font-medium text-slate-600">Positive Ionized Molecule</span>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <span class="w-2 h-2 rounded-full bg-amber-500 shadow-sm shadow-amber-300"></span>
+          <span class="text-xs font-medium text-slate-600">Ejected Electron</span>
+        </div>
+      </div>
+
+      <div id="dynamicLegendText" class="border-t border-slate-100 pt-2 mt-2 text-[10px] text-slate-400 leading-normal">
+        Alpha (++) is heavy, slow and highly charged, causing intense, dense tracks before stopping.
+      </div>
+    </div>
+
+    <!-- Informative floating hint -->
+    <div class="absolute bottom-4 left-4 bg-white/95 border border-slate-200 rounded-lg py-1 px-3 shadow-sm pointer-events-none text-[11px] text-slate-500 font-medium z-10">
+      💡 Watch the Alpha slow down and stop completely as it expends energy!
+    </div>
+  </div>
+
+  <!-- Sleek consolidated bottom dashboard bar -->
+  <footer class="flex-none bg-white border-t border-slate-200 px-6 py-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-center shadow-lg z-10">
+    
+    <!-- Toggle 1: Particle Selector (Span 4) -->
+    <div class="md:col-span-4 flex flex-col">
+      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Radiation Source</span>
+      <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
+        <button
+          id="btnAlpha"
+          onclick="setRadiationType('alpha')"
+          class="flex-1 py-2 px-1 text-xs font-bold rounded-lg transition-all bg-blue-600 text-white shadow-sm"
+        >
+          Alpha (He²⁺)
+        </button>
+        <button
+          id="btnBeta"
+          onclick="setRadiationType('beta')"
+          class="flex-1 py-2 px-1 text-xs font-bold rounded-lg transition-all text-slate-600 hover:text-rose-600"
+        >
+          Beta (e⁻)
+        </button>
+        <button
+          id="btnGamma"
+          onclick="setRadiationType('gamma')"
+          class="flex-1 py-2 px-1 text-xs font-bold rounded-lg transition-all text-slate-600 hover:text-indigo-600"
+        >
+          Gamma (γ)
+        </button>
+      </div>
+    </div>
+
+    <!-- Slider Controls: Speed & Gas Density (Span 5) -->
+    <div class="md:col-span-5 grid grid-cols-2 gap-4">
+      <div class="flex flex-col">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Initial Speed</span>
+          <span id="speedLabel" class="text-xs font-mono font-bold text-blue-600">4 units</span>
+        </div>
+        <input
+          id="speedSlider"
+          type="range"
+          min="2"
+          max="15"
+          step="0.5"
+          value="4"
+          oninput="handleSpeedChange(this.value)"
+          class="h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+        />
+      </div>
+
+      <div class="flex flex-col">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gas Density</span>
+          <span id="densityLabel" class="text-xs font-mono font-bold text-slate-600">180</span>
+        </div>
+        <input
+          id="densitySlider"
+          type="range"
+          min="60"
+          max="260"
+          step="10"
+          value="180"
+          oninput="handleDensityChange(this.value)"
+          class="h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+        />
+      </div>
+    </div>
+
+    <!-- Action controls (Span 3) -->
+    <div class="md:col-span-3 flex items-center justify-end gap-2">
+      <button
+        id="btnPlayToggle"
+        onclick="handleFireToggle()"
+        class="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200"
+      >
+        <!-- Inline Play SVG -->
+        <svg id="iconPlay" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+        </svg>
+        <!-- Inline Pause SVG -->
+        <svg id="iconPause" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 9v6m4-6v6" />
+        </svg>
+        <span id="lblFireBtn">Fire Radiation</span>
+      </button>
+      
+      <button
+        onclick="resetSimulation(false)"
+        class="flex items-center gap-2 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all border border-slate-200 shadow-sm font-bold text-xs"
+        title="Reset simulation and neutralize gas"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.5" />
+        </svg>
+        <span>Reset Scene</span>
+      </button>
+    </div>
+
+  </footer>
+
+  <script>
+    // Global simulation state variables
+    let radiationType = 'alpha';
+    let speed = 4;
+    let density = 180;
+    let isRunning = false;
+    let stats = { ionizations: 0, currentSpeed: 4, energyPct: 100 };
+
+    const canvas = document.getElementById('chamberCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+
+    // Persistent base molecular layout array
+    let baseMolecules = [];
+
+    // Particle and physics state refs
+    let simState = {
+      particle: { x: 30, y: 300, vx: 4, vy: 0, charge: 2, r: 10, mass: 4, initialK: 100, K: 100 },
+      molecules: [],
+      electrons: [],
+      interactionRadius: 45,
+      trail: []
+    };
+
+    // Responsive sizing listener
+    function resizeCanvas() {
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Keep state values in sync if needed, but make sure molecules boundaries adapt
+      if (baseMolecules.length === 0) {
+        generateBaseCoordinates(density);
+      }
+      resetSimulation(true); // Soft reset, preserving ion positions on window size changes
+    }
+
+    // Coordinates generated relative to actual scale - persistent until density modifications
+    function generateBaseCoordinates(num) {
+      baseMolecules = [];
+      const width = container.clientWidth || 1000;
+      const height = container.clientHeight || 600;
+      for (let i = 0; i < num; i++) {
+        baseMolecules.push({
+          x: 80 + Math.random() * (width - 120),
+          y: 40 + Math.random() * (height - 80)
+        });
+      }
+    }
+
+    // Instantiates molecular structures using absolute persistent coordinate structures
+    function initMoleculesState() {
+      simState.molecules = baseMolecules.map(coord => ({
+        x: coord.x,
+        y: coord.y,
+        ionized: false,
+        ionizeTime: 0
+      }));
+      simState.electrons = [];
+      simState.trail = [];
+    }
+
+    // Main reset routine
+    function resetSimulation(preserveIons = false) {
+      const height = canvas.height || 600;
+
+      let pCharge = 2;
+      let pRadius = 10;
+      let pMass = 4;
+      let interactionRadius = 45;
+      let initialSpeed = speed;
+
+      if (radiationType === 'beta') {
+        pCharge = -1;
+        pRadius = 5;
+        pMass = 0.5;
+        interactionRadius = 25;
+      } else if (radiationType === 'gamma') {
+        pCharge = 0;
+        pRadius = 0;
+        pMass = 0;
+        interactionRadius = 20; 
+      }
+
+      simState.particle = {
+        x: 30,
+        y: height / 2,
+        vx: initialSpeed,
+        vy: 0,
+        charge: pCharge,
+        r: pRadius,
+        mass: pMass,
+        initialK: 0.5 * (pMass || 1) * initialSpeed * initialSpeed,
+        K: 0.5 * (pMass || 1) * initialSpeed * initialSpeed
+      };
+
+      simState.interactionRadius = interactionRadius;
+      simState.trail = [];
+      simState.electrons = [];
+
+      if (!preserveIons) {
+        initMoleculesState();
+        stats.ionizations = 0;
+        stats.currentSpeed = initialSpeed;
+        stats.energyPct = 100;
+      } else {
+        stats.currentSpeed = initialSpeed;
+        stats.energyPct = 100;
+      }
+
+      updateUI();
+    }
+
+    // Slider hooks
+    function handleSpeedChange(val) {
+      speed = parseFloat(val);
+      document.getElementById('speedLabel').innerText = speed + " units";
+      resetSimulation(false);
+    }
+
+    function handleDensityChange(val) {
+      density = parseInt(val);
+      document.getElementById('densityLabel').innerText = density;
+      generateBaseCoordinates(density);
+      resetSimulation(false);
+    }
+
+    // Toggling types cleanly without resetting gas positions
+    function setRadiationType(type) {
+      radiationType = type;
+      
+      // Update buttons visual styling
+      const btnAlpha = document.getElementById('btnAlpha');
+      const btnBeta = document.getElementById('btnBeta');
+      const btnGamma = document.getElementById('btnGamma');
+      const legendText = document.getElementById('dynamicLegendText');
+
+      btnAlpha.className = "flex-1 py-2 px-1 text-xs font-bold rounded-lg transition-all text-slate-600 hover:text-blue-600";
+      btnBeta.className = "flex-1 py-2 px-1 text-xs font-bold rounded-lg transition-all text-slate-600 hover:text-rose-600";
+      btnGamma.className = "flex-1 py-2 px-1 text-xs font-bold rounded-lg transition-all text-slate-600 hover:text-indigo-600";
+
+      if (type === 'alpha') {
+        btnAlpha.className = "flex-1 py-2 px-1 text-xs font-bold rounded-lg transition-all bg-blue-600 text-white shadow-sm";
+        legendText.innerText = "Alpha (++) is heavy, slow and highly charged, causing intense, dense tracks before stopping.";
+        speed = 4;
+      } else if (type === 'beta') {
+        btnBeta.className = "flex-1 py-2 px-1 text-xs font-bold rounded-lg transition-all bg-rose-500 text-white shadow-sm";
+        legendText.innerText = "Beta (-) is extremely light, resulting in high speed, frequent scatters, and sparse ionizations.";
+        speed = 8;
+      } else if (type === 'gamma') {
+        btnGamma.className = "flex-1 py-2 px-1 text-xs font-bold rounded-lg transition-all bg-indigo-600 text-white shadow-sm";
+        legendText.innerText = "Gamma (wave) is neutral. It leaves no track, causing only rare, localized Compton scattering events.";
+        speed = 12;
+      }
+
+      // Sync slider state
+      document.getElementById('speedSlider').value = speed;
+      document.getElementById('speedLabel').innerText = speed + " units";
+
+      resetSimulation(false);
+    }
+
+    // Auto rewinds/triggers play and pause actions
+    function handleFireToggle() {
+      const p = simState.particle;
+      const currentSpeedMag = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+
+      if (p.x >= canvas.width - 15 || currentSpeedMag <= 0.05) {
+        resetSimulation(false);
+      }
+
+      isRunning = !isRunning;
+      updateUI();
+    }
+
+    // Refresh UI text and button visual states
+    function updateUI() {
+      document.getElementById('dwellFactor').innerText = (4 / Math.max(0.1, stats.currentSpeed)).toFixed(1) + "x";
+      document.getElementById('ionizationCount').innerText = stats.ionizations;
+
+      const btn = document.getElementById('btnPlayToggle');
+      const iconPlay = document.getElementById('iconPlay');
+      const iconPause = document.getElementById('iconPause');
+      const btnText = document.getElementById('lblFireBtn');
+
+      if (isRunning) {
+        btn.className = "flex-1 py-2.5 px-4 rounded-xl font-bold text-xs tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200";
+        iconPlay.classList.add('hidden');
+        iconPause.classList.remove('hidden');
+        btnText.innerText = "Pause";
+      } else {
+        btn.className = "flex-1 py-2.5 px-4 rounded-xl font-bold text-xs tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-200";
+        iconPlay.classList.remove('hidden');
+        iconPause.classList.add('hidden');
+        btnText.innerText = "Fire Radiation";
+      }
+    }
+
+    // High frequency simulation math update
+    function updatePhysics() {
+      if (!isRunning) return;
+
+      const p = simState.particle;
+
+      // Update positions
+      p.x += p.vx;
+      p.y += p.vy;
+
+      // Track trails
+      simState.trail.push({ x: p.x, y: p.y });
+      if (simState.trail.length > 80) simState.trail.shift();
+
+      // Stopping power drag deceleration on heavy Alpha particle
+      const currentSpeedMag = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+      if (radiationType === 'alpha' && currentSpeedMag > 0) {
+        const continuousLoss = 0.04 / Math.max(0.2, currentSpeedMag);
+        p.K = Math.max(0, p.K - continuousLoss);
+
+        if (p.K <= 0.15) {
+          p.K = 0;
+          p.vx = 0;
+          p.vy = 0;
+          isRunning = false;
+          updateUI();
+          return;
+        } else {
+          const speedScalar = Math.sqrt((2 * p.K) / p.mass);
+          const angleMotion = Math.atan2(p.vy, p.vx);
+          p.vx = Math.cos(angleMotion) * speedScalar;
+          p.vy = Math.sin(angleMotion) * speedScalar;
+        }
+      }
+
+      // Beta zigzag scattering mechanics
+      if (radiationType === 'beta') {
+        if (Math.random() < 0.15) {
+          p.vy += (Math.random() - 0.5) * 1.5;
+          if (p.y < 50) p.vy = Math.abs(p.vy);
+          if (p.y > canvas.height - 50) p.vy = -Math.abs(p.vy);
+        }
+      }
+
+      // Run ionization collision evaluations
+      simState.molecules.forEach(mol => {
+        if (mol.ionized) return;
+
+        const dx = mol.x - p.x;
+        const dy = mol.y - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < simState.interactionRadius) {
+          const freshSpeedMag = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+          const currentVelSq = freshSpeedMag * freshSpeedMag;
+
+          if (radiationType === 'gamma') {
+            const gammaScatteringProbability = 0.025; 
+            if (Math.random() < gammaScatteringProbability) {
+              mol.ionized = true;
+              mol.ionizeTime = 25;
+              stats.ionizations++;
+
+              const angle = Math.random() * Math.PI * 2;
+              const speedE = 5 + Math.random() * 3;
+              simState.electrons.push({
+                x: mol.x,
+                y: mol.y,
+                vx: Math.cos(angle) * speedE,
+                vy: Math.sin(angle) * speedE,
+                life: 35,
+                secondary: true
+              });
+            }
+          } else if (freshSpeedMag > 0.1) {
+            const ionizationConstant = 130;
+            const prob = (ionizationConstant * (p.charge * p.charge)) / (currentVelSq * Math.pow(dist, 1.2));
+
+            if (Math.random() < prob) {
+              mol.ionized = true;
+              mol.ionizeTime = 20;
+              stats.ionizations++;
+
+              const angle = Math.random() * Math.PI * 2;
+              const speedE = 3 + Math.random() * 3;
+              simState.electrons.push({
+                x: mol.x,
+                y: mol.y,
+                vx: Math.cos(angle) * speedE,
+                vy: Math.sin(angle) * speedE,
+                life: 25,
+                secondary: false
+              });
+
+              const energyLoss = radiationType === 'alpha' ? 1.5 : 0.8;
+              p.K = Math.max(0, p.K - energyLoss);
+
+              if (p.K <= 0.15) {
+                p.K = 0;
+                p.vx = 0;
+                p.vy = 0;
+                isRunning = false;
+                updateUI();
+              } else {
+                const speedScalar = Math.sqrt((2 * p.K) / p.mass);
+                const angleMotion = Math.atan2(p.vy, p.vx);
+                p.vx = Math.cos(angleMotion) * speedScalar;
+                p.vy = Math.sin(angleMotion) * speedScalar;
+              }
+            }
+          }
+        }
+      });
+
+      // Electron cascade collisions
+      simState.electrons.forEach(e => {
+        if (e.secondary && Math.random() < 0.1) {
+          simState.molecules.forEach(mol => {
+            if (mol.ionized) return;
+            const dx = mol.x - e.x;
+            const dy = mol.y - e.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < 25 && Math.random() < 0.2) {
+              mol.ionized = true;
+              mol.ionizeTime = 15;
+              stats.ionizations++;
+            }
+          });
+        }
+      });
+
+      // Advance electron lifespans
+      simState.electrons = simState.electrons.filter(e => {
+        e.x += e.vx;
+        e.y += e.vy;
+        e.life--;
+        return e.life > 0;
+      });
+
+      // Frame stats tracking
+      const updatedSpeedMag = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+      stats.currentSpeed = updatedSpeedMag;
+      stats.energyPct = p.initialK > 0 ? Math.round((p.K / p.initialK) * 100) : 0;
+
+      // Wrap check on right boundary
+      if (p.x > canvas.width) {
+        isRunning = false;
+        updateUI();
+      }
+
+      updateUI();
+    }
+
+    // High frequency canvas draw loop
+    function draw() {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const p = simState.particle;
+
+      // Draw molecules
+      simState.molecules.forEach(mol => {
+        if (mol.ionized) {
+          ctx.shadowBlur = mol.ionizeTime > 0 ? mol.ionizeTime : 0;
+          ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.arc(mol.x, mol.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 8px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('+', mol.x, mol.y);
+
+          if (mol.ionizeTime > 0) {
+            mol.ionizeTime--;
+            ctx.strokeStyle = `rgba(239, 68, 68, ${mol.ionizeTime / 20})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(mol.x, mol.y, 25 - mol.ionizeTime, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        } else {
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = 'rgba(203, 213, 225, 0.7)';
+          ctx.beginPath();
+          ctx.arc(mol.x - 2.5, mol.y, 3, 0, Math.PI * 2);
+          ctx.arc(mol.x + 2.5, mol.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+      ctx.shadowBlur = 0;
+
+      // Draw ejected electrons
+      simState.electrons.forEach(e => {
+        ctx.fillStyle = e.secondary ? 'rgba(79, 70, 229, 0.9)' : 'rgba(245, 158, 11, 0.9)';
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.secondary ? 3 : 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = e.secondary ? 'rgba(79, 70, 229, 0.3)' : 'rgba(245, 158, 11, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(e.x, e.y);
+        ctx.lineTo(e.x - e.vx * 1.5, e.y - e.vy * 1.5);
+        ctx.stroke();
+      });
+
+      // Coulomb field boundaries (Drawn only if moving and not Gamma)
+      const currentSpeedMag = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+      if (currentSpeedMag > 0.1 && radiationType !== 'gamma') {
+        const radius = simState.interactionRadius;
+        const speedFactor = Math.min(1.5, 4 / Math.max(0.5, speed));
+
+        const gradient = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, radius);
+        if (radiationType === 'alpha') {
+          gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+          gradient.addColorStop(0.5, `rgba(59, 130, 246, ${0.1 * speedFactor})`);
+          gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+        } else {
+          gradient.addColorStop(0, 'rgba(225, 29, 72, 0.25)');
+          gradient.addColorStop(0.5, `rgba(225, 29, 72, ${0.08 * speedFactor})`);
+          gradient.addColorStop(1, 'rgba(225, 29, 72, 0)');
+        }
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = radiationType === 'alpha' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(225, 29, 72, 0.25)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Draw particle trails
+      if (simState.trail.length > 1 && radiationType !== 'gamma') {
+        ctx.strokeStyle = radiationType === 'alpha' ? 'rgba(59, 130, 246, 0.08)' : 'rgba(225, 29, 72, 0.06)';
+        ctx.lineWidth = p.r * 2.5;
+        ctx.beginPath();
+        ctx.moveTo(simState.trail[0].x, simState.trail[0].y);
+        for (let i = 1; i < simState.trail.length; i++) {
+          ctx.lineTo(simState.trail[i].x, simState.trail[i].y);
+        }
+        ctx.stroke();
+      }
+
+      // Draw Particle core graphics
+      if (radiationType === 'gamma') {
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        const waveLength = 40;
+        const amplitude = 12;
+        for (let x = Math.max(30, p.x - 60); x <= p.x; x += 1) {
+          const yOffset = Math.sin((x - p.x) * (Math.PI * 2 / waveLength)) * amplitude;
+          if (x === Math.max(30, p.x - 60)) {
+            ctx.moveTo(x, p.y + yOffset);
+          } else {
+            ctx.lineTo(x, p.y + yOffset);
+          }
+        }
+        ctx.stroke();
+
+        ctx.fillStyle = '#6366f1';
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y - 6);
+        ctx.lineTo(p.x + 8, p.y);
+        ctx.lineTo(p.x, p.y + 6);
+        ctx.fill();
+      } else {
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = radiationType === 'alpha' ? 'rgba(59, 130, 246, 0.5)' : 'rgba(225, 29, 72, 0.5)';
+        ctx.fillStyle = radiationType === 'alpha' ? '#3b82f6' : '#f43f5e';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(radiationType === 'alpha' ? '++' : '-', p.x, p.y);
+      }
+
+      // Vector speed indicators
+      if (currentSpeedMag > 0.05 && radiationType !== 'gamma') {
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(p.x + p.r, p.y);
+        ctx.lineTo(p.x + p.r + p.vx * 4, p.y);
+        ctx.stroke();
+
+        ctx.fillStyle = '#10b981';
+        ctx.beginPath();
+        ctx.moveTo(p.x + p.r + p.vx * 4, p.y - 3.5);
+        ctx.lineTo(p.x + p.r + p.vx * 4 + 5, p.y);
+        ctx.lineTo(p.x + p.r + p.vx * 4, p.y + 3.5);
+        ctx.fill();
+      }
+    }
+
+    // Engine loop structure
+    function loop() {
+      updatePhysics();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // Attach windows/lifecycle elements
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      loop();
+    });
+  </script>
+</body>
+</html>
