@@ -145,7 +145,7 @@ body {
   font-family: inherit;
   font-weight: 600;
   font-size: 1rem;
-  border-radius: 999px;
+  border-radius: 14px;
   padding: 0.95rem 1.6rem;
   transition: transform 0.2s var(--ease), background 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
