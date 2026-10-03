@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Discover your top love languages with a quick 30-question A/B quiz." />
+  <title>Heartspeak — Discover Your Love Languages</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+
+  <main id="app">
+    <section class="screen screen--intro is-active" id="screen-intro" aria-labelledby="intro-title">
+      <p class="brand">Heartspeak</p>
+      <h1 id="intro-title">Discover how you love</h1>
+      <p class="lede">Thirty quick choices. Two answers each time. Your top love languages at the end.</p>
+      <button type="button" class="btn btn--primary" id="btn-start">Begin the quiz</button>
+      <p class="meta">About 5 minutes · Session only · No account</p>
+    </section>
+
+    <section class="screen screen--quiz" id="screen-quiz" aria-labelledby="question-text" hidden>
+      <header class="quiz-header">
+        <p class="brand brand--compact">Heartspeak</p>
+        <div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="30" aria-valuenow="1" aria-label="Quiz progress">
+          <div class="progress__track">
+            <div class="progress__fill" id="progress-fill"></div>
+          </div>
+          <p class="progress__label"><span id="progress-current">1</span> / 30</p>
+        </div>
+      </header>
+
+      <h2 class="question" id="question-text"></h2>
+
+      <div class="choices" id="choices">
+        <button type="button" class="choice" data-choice="a" id="choice-a">
+          <span class="choice__key">A</span>
+          <span class="choice__text" id="choice-a-text"></span>
+        </button>
+        <button type="button" class="choice" data-choice="b" id="choice-b">
+          <span class="choice__key">B</span>
+          <span class="choice__text" id="choice-b-text"></span>
+        </button>
+      </div>
+    </section>
+
+    <section class="screen screen--results" id="screen-results" aria-labelledby="results-title" hidden>
+      <p class="brand brand--compact">Heartspeak</p>
+      <p class="eyebrow">Your love language profile</p>
+      <h2 id="results-title">Your top two languages</h2>
+      <p class="lede lede--narrow">These are the ways affection tends to land deepest for you — and how you may instinctively show it back.</p>
+
+      <ol class="top-languages" id="top-languages"></ol>
+
+      <div class="breakdown" id="breakdown" aria-label="Full score breakdown"></div>
+
+      <button type="button" class="btn btn--primary" id="btn-retake">Retake the quiz</button>
+    </section>
+  </main>
+
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
