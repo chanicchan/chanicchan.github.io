@@ -122,9 +122,9 @@
       .map(
         (lang, i) => `
         <li class="lang-card">
-          <p class="lang-card__rank">${i === 0 ? "Primary" : "Secondary"}</p>
+          <p class="lang-card__rank">${i === 0 ? "Top language" : "Second language"}</p>
           <h3 class="lang-card__name">${lang.name}</h3>
-          <p class="lang-card__score">${lang.pct}% of your choices · ${lang.count} of ${QUESTIONS.length}</p>
+          <p class="lang-card__score">${lang.pct}% of your answers · ${lang.count} out of ${QUESTIONS.length}</p>
           <p class="lang-card__desc">${lang.description}</p>
         </li>`
       )
